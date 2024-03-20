@@ -38,54 +38,58 @@ Callback Registration
 
 To use the available callbacks, you need to implement and register them. Implementation can be done in a multitude of ways like using ordinary methods, blocks and procs, or defining custom callback objects using callback classes. Let's go through each of these implementation techniques.
 
-You can implement the callbacks as ordinary methods and use a macro-style class method to register them as callbacks.
+You can implement the callbacks as a **macro-style method that calls an ordinary method** for registration.
 
 ```ruby
 class User < ApplicationRecord
-  validates :login, :email, presence: true
+  validates :username, :email, presence: true
 
-  before_validation :ensure_login_has_a_value
+  before_validation :ensure_username_has_value
 
   private
-    def ensure_login_has_a_value
-      if login.blank?
-        self.login = email unless email.blank?
+    def ensure_username_has_value
+      if username.blank?
+        self.username = email
       end
     end
 end
 ```
 
-The macro-style class methods can also receive a block. Consider using this style if the code inside your block is so short that it fits in a single line:
+The **macro-style class methods can also receive a block**. Consider using this style if the code inside your block is so short that it fits in a single line:
 
 ```ruby
 class User < ApplicationRecord
-  validates :login, :email, presence: true
+  validates :username, :email, presence: true
 
-  before_create do
-    self.name = login.capitalize if name.blank?
+  before_validation do
+    self.username = email if username.blank?
   end
 end
 ```
 
-Alternatively, you can pass a proc to the callback to be triggered.
+Alternatively, you can **pass a proc to the callback** to be triggered.
 
 ```ruby
 class User < ApplicationRecord
-  before_create ->(user) { user.name = user.login.capitalize if user.name.blank? }
+  validates :username, :email, presence: true
+
+  before_validation ->(user) { user.username = user.email if user.username.blank? }
 end
 ```
 
-Lastly, you can define a custom callback object, which we will cover later in more detail [below](#callback-classes).
+Lastly, you can define **a custom callback object**, which we will cover later in more detail [below](#callback-classes).
 
 ```ruby
 class User < ApplicationRecord
-  before_create MaybeAddName
+  validates :username, :email, presence: true
+
+  before_validation AddUsername
 end
 
-class MaybeAddName
-  def self.before_create(record)
-    if record.name.blank?
-      record.name = record.login.capitalize
+class AddUsername
+  def self.before_validation(record)
+    if record.username.blank?
+      record.username = record.email
     end
   end
 end
@@ -95,14 +99,18 @@ Callbacks can also be registered to only fire on certain life cycle events, this
 
 ```ruby
 class User < ApplicationRecord
-  before_validation :normalize_name, on: :create
+  validates :username, :email, presence: true
+
+  before_validation :ensure_username_has_value, on: :create
 
   # :on takes an array as well
   after_validation :set_location, on: [ :create, :update ]
 
   private
-    def normalize_name
-      self.name = name.downcase.titleize
+    def ensure_username_has_value
+      if username.blank?
+        self.username = email
+      end
     end
 
     def set_location
@@ -113,7 +121,8 @@ end
 
 It is considered good practice to declare callback methods as private. If left public, they can be called from outside of the model and violate the principle of object encapsulation.
 
-WARNING. Avoid calls to `update`, `save` or other methods that create side-effects to the object inside your callback. For example, don't call `update(attribute: "value")` within a callback. This can alter the state of the model and may result in unexpected side effects during commit. Instead, you can safely assign values directly (for example, `self.attribute = "value"`) in `before_create` / `before_update` or earlier callbacks.
+WARNING. Refrain from using methods like `update`, `save`, or any other methods that cause side effects on the object within your callback functions. For instance, avoid calling `update(attribute: "value")` inside a callback. This practice can modify the model's state and potentially lead to unforeseen side effects during commit. Instead, you can assign values directly (e.g., `self.attribute = "value"`) in `before_create`, `before_update`, or earlier callbacks for a safer approach.
+
 
 Available Callbacks
 -------------------

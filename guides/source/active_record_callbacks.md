@@ -168,7 +168,7 @@ Here is a list with all the available Active Record callbacks, listed in the sam
 [`around_update`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-around_update
 [`before_update`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_update
 
-WARNING. `after_save` runs both on create and update, but always _after_ the more specific callbacks `after_create` and `after_update`, no matter the order in which the macro calls were executed.
+WARNING. The `after_save` callback is triggered on both a create and update. However, it consistently executes after the more specific callbacks `after_create` and `after_update`, regardless of the sequence in which the macro calls were made.
 
 ### Destroying an Object
 

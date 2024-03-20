@@ -303,10 +303,13 @@ Additionally, the `after_find` callback is triggered by the following finder met
 * `first`
 * `find`
 * `find_by`
+* `find_by!`
 * `find_by_*`
 * `find_by_*!`
 * `find_by_sql`
 * `last`
+* `sole`
+* `take`
 
 The `after_initialize` callback is triggered every time a new object of the class is initialized.
 

@@ -195,7 +195,7 @@ combination.
 
 #### Validation Callbacks
 
-Validation callbacks are triggered by the `valid?` method. They are called
+Validation callbacks are triggered by the `valid?` method. They can be called
 before and after the validation phase.
 
 ```ruby
@@ -231,8 +231,8 @@ Validation failed: Name can't be blank
 
 #### Save Callbacks
 
-Save callbacks are triggered by the `save` method. They are called before, after
-and around the object is saved.
+Save callbacks are triggered by the `save` method. They can be called before,
+after and around the object is saved.
 
 ```ruby
 class User < ApplicationRecord
@@ -272,8 +272,8 @@ Update Cache
 
 #### Create Callbacks
 
-Create callbacks are triggered by the `create` method. They are called before,
-after and around the object is created.
+Create callbacks are triggered by the `create` method. They can be called
+before, after and around the object is created.
 
 ```ruby
 class User < ApplicationRecord

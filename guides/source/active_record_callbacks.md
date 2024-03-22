@@ -127,7 +127,7 @@ WARNING. Refrain from using methods like `update`, `save`, or any other methods 
 Available Callbacks
 -------------------
 
-Here is a list with all the available Active Record callbacks, listed in the same order in which they will get called during the respective operations:
+Here is a list with all the available Active Record callbacks, listed **in the order in which they will get called** during the respective operations:
 
 ### Creating an Object
 
@@ -152,6 +152,123 @@ Here is a list with all the available Active Record callbacks, listed in the sam
 [`before_save`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_save
 [`before_validation`]: https://api.rubyonrails.org/classes/ActiveModel/Validations/Callbacks/ClassMethods.html#method-i-before_validation
 
+There are examples below that show how to use these callbacks. We've grouped them by the operation they are associated with, however they can be used in any combination.
+
+#### Validation Callbacks
+
+Validation callbacks are triggered by the `valid?` method. They are called before and after the validation phase.
+
+```ruby
+class User < ApplicationRecord
+  validates :name, presence: true
+  before_validation :normalize_name
+  after_validation :check_errors
+
+  private
+
+  def normalize_name
+    self.name = name.downcase.titleize if name.present?
+    Rails.logger.info("Name normalized to #{name}")
+  end
+
+  def check_errors
+    if errors.any?
+      Rails.logger.error("Validation failed: #{errors.full_messages.join(', ')}")
+    end
+  end
+end
+```
+
+```irb
+irb> user = User.new(name: "", email: "john.doe@me.com", password: "abc123456")
+=> #<User id: nil, email: "john.doe@me.com", created_at: nil, updated_at: nil, name: "">
+
+irb> user.valid?
+Name normalized to
+Validation failed: Name can't be blank
+=> false
+```
+
+#### Save Callbacks
+
+Save callbacks are triggered by the `save` method. They are called before, after and around the object is saved.
+
+```ruby
+class User < ApplicationRecord
+  before_save :encrypt_password
+  around_save :log_saving
+  after_save :send_welcome_email
+
+  private
+
+  def encrypt_password
+    self.password = BCrypt::Password.create(password)
+    Rails.logger.info("Password encrypted for user with email: #{email}")
+  end
+
+  def log_saving
+    Rails.logger.info("Saving user with email: #{email}")
+    yield
+    Rails.logger.info("User saved with email: #{email}")
+  end
+
+  def update_cache
+    Rails.cache.write("user_data", attributes)
+    Rails.logger.info("Update Cache")
+  end
+end
+```
+
+```irb
+irb> user = User.create(name: "Jane Doe", email: "jane.doe@gmail.com")
+
+Password encrypted for user with email: jane.doe@gmail.com
+Saving user with email: jane.doe@gmail.com
+User saved with email: jane.doe@gmail.com
+Update Cache
+=> #<User id: 1, email: "jane.doe@gmail.com", created_at: "2024-03-20 16:02:43.685500000 +0000", updated_at: "2024-03-20 16:02:43.685500000 +0000", name: "Jane Doe">
+```
+
+#### Create Callbacks
+
+Create callbacks are triggered by the `create` method. They are called before, after and around the object is created.
+
+```ruby
+class User < ApplicationRecord
+  before_create :set_default_role
+  around_create :log_creation
+  after_create :send_welcome_email
+
+  private
+
+  def set_default_role
+    self.role = "user"
+    Rails.logger.info("User role set to default: user")
+  end
+
+  def log_creation
+    Rails.logger.info("Creating user with email: #{email}")
+    yield
+    Rails.logger.info("User created with email: #{email}")
+  end
+
+  def send_welcome_email
+    UserMailer.welcome_email(self).deliver_later
+    Rails.logger.info("User welcome email sent to: #{email}")
+  end
+end
+```
+
+```irb
+irb> user = User.create(name: "John Doe", email: "john.doe@gmail.com")
+
+User role set to default: user
+Creating user with email: john.doe@gmail.com
+User created with email: john.doe@gmail.com
+User welcome email sent to: john.doe@gmail.com
+=> #<User id: 10, email: "john.doe@gmail.com", created_at: "2024-03-20 16:19:52.405195000 +0000", updated_at: "2024-03-20 16:19:52.405195000 +0000", name: "John Doe">
+```
+
 ### Updating an Object
 
 * [`before_validation`][]
@@ -168,7 +285,50 @@ Here is a list with all the available Active Record callbacks, listed in the sam
 [`around_update`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-around_update
 [`before_update`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_update
 
+
 WARNING. The `after_save` callback is triggered on both a create and update. However, it consistently executes after the more specific callbacks `after_create` and `after_update`, regardless of the sequence in which the macro calls were made.
+
+We've already covered [validation](active_record_callbacks.html#validation-callbacks), [save](active_record_callbacks.html#save-callbacks) and [commit](active_record_callbacks.html#commit-callbacks) callbacks.  `after_commit` / `after_rollback` examples can be found [here](active_record_callbacks.html#after-commit-and-after-rollback).
+
+#### Update Callbacks
+
+```ruby
+class User < ApplicationRecord
+  before_update :check_role_change
+  around_update :log_updating
+  after_update :send_update_email
+
+  private
+
+  def check_role_change
+    if role_changed?
+      Rails.logger.info("User role changed to #{role}")
+    end
+  end
+
+  def log_updating
+    Rails.logger.info("Updating user with email: #{email}")
+    yield
+    Rails.logger.info("User updated with email: #{email}")
+  end
+
+  def send_update_email
+    UserMailer.update_email(self).deliver_later
+    Rails.logger.info("Update email sent to: #{email}")
+  end
+end
+```
+
+```irb
+irb> user = User.find(1)
+=> #<User id: 1, email: "john.doe@gmail.com", created_at: "2024-03-20 16:19:52.405195000 +0000", updated_at: "2024-03-20 16:19:52.405195000 +0000", name: "John Doe", role: "admin" >
+
+irb> user.update(role: "admin")
+User role changed to admin
+Updating user with email: john.doe@gmail.com
+User updated with email: john.doe@gmail.com
+Update email sent to: john.doe@gmail.com
+```
 
 ### Destroying an Object
 
@@ -184,6 +344,46 @@ WARNING. The `after_save` callback is triggered on both a create and update. How
 NOTE: `before_destroy` callbacks should be placed before `dependent: :destroy` associations (or use the `prepend: true` option), to ensure they execute before the records are deleted by `dependent: :destroy`.
 
 WARNING. `after_commit` makes very different guarantees than `after_save`, `after_update`, and `after_destroy`. For example, if an exception occurs in an `after_save` the transaction will be rolled back and the data will not be persisted. However, anything that happens `after_commit` can guarantee the transaction has already been completed and the data was persisted to the database. More on [transactional callbacks](#transaction-callbacks) below.
+
+```ruby
+class User < ApplicationRecord
+  before_destroy :check_admin_count
+  around_destroy :log_destroy_operation
+  after_destroy :notify_users
+
+  private
+
+  def check_admin_count
+    if User.where(admin: true).count == 1 && admin?
+      raise StandardError.new("Cannot delete the last admin user")
+    end
+    Rails.logger.info("Checked the admin count")
+  end
+
+  def log_destroy_operation
+    Rails.logger.info("About to destroy user with ID #{id}")
+    yield
+    Rails.logger.info("User with ID #{id} destroyed successfully")
+  end
+
+  def notify_users
+    Rails.logger.info("Notification sent to other users about user deletion")
+  end
+end
+```
+
+```irb
+irb> user = User.find(1)
+=> #<User id: 1, email: "john.doe@gmail.com", created_at: "2024-03-20 16:19:52.405195000 +0000", updated_at: "2024-03-20 16:19:52.405195000 +0000", name: "John Doe", role: "admin" >
+
+irb> user.destroy
+Checked the admin count
+About to destroy user with ID 1
+User with ID 1 destroyed successfully
+Notification sent to other users about user deletion
+```
+
+`after_commit` / `after_rollback` examples can be found [here](active_record_callbacks.html#after-commit-and-after-rollback).
 
 ### `after_initialize` and `after_find`
 

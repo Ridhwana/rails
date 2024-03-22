@@ -3,22 +3,31 @@
 Active Record Callbacks
 =======================
 
-This guide teaches you how to hook into the life cycle of your Active Record objects.
+This guide teaches you how to hook into the life cycle of your Active Record
+objects.
 
 After reading this guide, you will know:
 
 * When certain events occur during the life of an Active Record object
-* How to create callback methods that respond to events in the object life cycle.
-* How to create special classes that encapsulate common behavior for your callbacks.
+* How to create callback methods that respond to events in the object life
+  cycle.
+* How to create special classes that encapsulate common behavior for your
+  callbacks.
 
 --------------------------------------------------------------------------------
 
 The Object Life Cycle
 ---------------------
 
-During the normal operation of a Rails application, objects may be created, updated, and destroyed. Active Record provides hooks into this *object life cycle* so that you can control your application and its data.
+During the normal operation of a Rails application, objects may be created,
+updated, and destroyed. Active Record provides hooks into this *object life
+cycle* so that you can control your application and its data.
 
-Callbacks allow you to trigger logic before or after an alteration of an object's state. They are methods that get called at certain moments of an object's life cycle. With callbacks it is possible to write code that will run whenever an Active Record object is created, saved, updated, deleted, validated, or loaded from the database.
+Callbacks allow you to trigger logic before or after an alteration of an
+object's state. They are methods that get called at certain moments of an
+object's life cycle. With callbacks it is possible to write code that will run
+whenever an Active Record object is created, saved, updated, deleted, validated,
+or loaded from the database.
 
 ```ruby
 class Baby < ApplicationRecord
@@ -31,14 +40,19 @@ irb> @baby = Baby.create
 Congratulations!
 ```
 
-As you will see, there are many life cycle events and you can choose to hook into any of these either before, after, or even around them.
+As you will see, there are many life cycle events and you can choose to hook
+into any of these either before, after, or even around them.
 
 Callback Registration
 ------------------
 
-To use the available callbacks, you need to implement and register them. Implementation can be done in a multitude of ways like using ordinary methods, blocks and procs, or defining custom callback objects using callback classes. Let's go through each of these implementation techniques.
+To use the available callbacks, you need to implement and register them.
+Implementation can be done in a multitude of ways like using ordinary methods,
+blocks and procs, or defining custom callback objects using callback classes.
+Let's go through each of these implementation techniques.
 
-You can implement the callbacks as a **macro-style method that calls an ordinary method** for registration.
+You can implement the callbacks as a **macro-style method that calls an ordinary
+method** for registration.
 
 ```ruby
 class User < ApplicationRecord
@@ -55,7 +69,8 @@ class User < ApplicationRecord
 end
 ```
 
-The **macro-style class methods can also receive a block**. Consider using this style if the code inside your block is so short that it fits in a single line:
+The **macro-style class methods can also receive a block**. Consider using this
+style if the code inside your block is so short that it fits in a single line:
 
 ```ruby
 class User < ApplicationRecord
@@ -77,7 +92,8 @@ class User < ApplicationRecord
 end
 ```
 
-Lastly, you can define **a custom callback object**, which we will cover later in more detail [below](#callback-classes).
+Lastly, you can define **a custom callback object**, which we will cover later
+in more detail [below](#callback-classes).
 
 ```ruby
 class User < ApplicationRecord
@@ -95,7 +111,9 @@ class AddUsername
 end
 ```
 
-Callbacks can also be registered to only fire on certain life cycle events, this allows complete control over when and in what context your callbacks are triggered.
+Callbacks can also be registered to only fire on certain life cycle events, this
+allows complete control over when and in what context your callbacks are
+triggered.
 
 ```ruby
 class User < ApplicationRecord
@@ -119,15 +137,24 @@ class User < ApplicationRecord
 end
 ```
 
-It is considered good practice to declare callback methods as private. If left public, they can be called from outside of the model and violate the principle of object encapsulation.
+It is considered good practice to declare callback methods as private. If left
+public, they can be called from outside of the model and violate the principle
+of object encapsulation.
 
-WARNING. Refrain from using methods like `update`, `save`, or any other methods that cause side effects on the object within your callback functions. For instance, avoid calling `update(attribute: "value")` inside a callback. This practice can modify the model's state and potentially lead to unforeseen side effects during commit. Instead, you can assign values directly (e.g., `self.attribute = "value"`) in `before_create`, `before_update`, or earlier callbacks for a safer approach.
+WARNING. Refrain from using methods like `update`, `save`, or any other methods
+that cause side effects on the object within your callback functions. For
+instance, avoid calling `update(attribute: "value")` inside a callback. This
+practice can modify the model's state and potentially lead to unforeseen side
+effects during commit. Instead, you can assign values directly (e.g.,
+`self.attribute = "value"`) in `before_create`, `before_update`, or earlier
+callbacks for a safer approach.
 
 
 Available Callbacks
 -------------------
 
-Here is a list with all the available Active Record callbacks, listed **in the order in which they will get called** during the respective operations:
+Here is a list with all the available Active Record callbacks, listed **in the
+order in which they will get called** during the respective operations:
 
 ### Creating an Object
 
@@ -141,22 +168,35 @@ Here is a list with all the available Active Record callbacks, listed **in the o
 * [`after_save`][]
 * [`after_commit`][] / [`after_rollback`][]
 
-[`after_create`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_create
-[`after_commit`]: https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_commit
-[`after_rollback`]: https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_rollback
-[`after_save`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_save
-[`after_validation`]: https://api.rubyonrails.org/classes/ActiveModel/Validations/Callbacks/ClassMethods.html#method-i-after_validation
-[`around_create`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-around_create
-[`around_save`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-around_save
-[`before_create`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_create
-[`before_save`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_save
-[`before_validation`]: https://api.rubyonrails.org/classes/ActiveModel/Validations/Callbacks/ClassMethods.html#method-i-before_validation
+[`after_create`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_create
+[`after_commit`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_commit
+[`after_rollback`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_rollback
+[`after_save`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_save
+[`after_validation`]:
+    https://api.rubyonrails.org/classes/ActiveModel/Validations/Callbacks/ClassMethods.html#method-i-after_validation
+[`around_create`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-around_create
+[`around_save`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-around_save
+[`before_create`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_create
+[`before_save`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_save
+[`before_validation`]:
+    https://api.rubyonrails.org/classes/ActiveModel/Validations/Callbacks/ClassMethods.html#method-i-before_validation
 
-There are examples below that show how to use these callbacks. We've grouped them by the operation they are associated with, however they can be used in any combination.
+There are examples below that show how to use these callbacks. We've grouped
+them by the operation they are associated with, however they can be used in any
+combination.
 
 #### Validation Callbacks
 
-Validation callbacks are triggered by the `valid?` method. They are called before and after the validation phase.
+Validation callbacks are triggered by the `valid?` method. They are called
+before and after the validation phase.
 
 ```ruby
 class User < ApplicationRecord
@@ -191,7 +231,8 @@ Validation failed: Name can't be blank
 
 #### Save Callbacks
 
-Save callbacks are triggered by the `save` method. They are called before, after and around the object is saved.
+Save callbacks are triggered by the `save` method. They are called before, after
+and around the object is saved.
 
 ```ruby
 class User < ApplicationRecord
@@ -231,7 +272,8 @@ Update Cache
 
 #### Create Callbacks
 
-Create callbacks are triggered by the `create` method. They are called before, after and around the object is created.
+Create callbacks are triggered by the `create` method. They are called before,
+after and around the object is created.
 
 ```ruby
 class User < ApplicationRecord
@@ -281,14 +323,25 @@ User welcome email sent to: john.doe@gmail.com
 * [`after_save`][]
 * [`after_commit`][] / [`after_rollback`][]
 
-[`after_update`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_update
-[`around_update`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-around_update
-[`before_update`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_update
+[`after_update`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_update
+[`around_update`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-around_update
+[`before_update`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_update
 
 
-WARNING. The `after_save` callback is triggered on both a create and update. However, it consistently executes after the more specific callbacks `after_create` and `after_update`, regardless of the sequence in which the macro calls were made.
+WARNING. The `after_save` callback is triggered on both a create and update.
+However, it consistently executes after the more specific callbacks
+`after_create` and `after_update`, regardless of the sequence in which the macro
+calls were made.
 
-We've already covered [validation](active_record_callbacks.html#validation-callbacks), [save](active_record_callbacks.html#save-callbacks) and [commit](active_record_callbacks.html#commit-callbacks) callbacks.  `after_commit` / `after_rollback` examples can be found [here](active_record_callbacks.html#after-commit-and-after-rollback).
+We've already covered
+[validation](active_record_callbacks.html#validation-callbacks),
+[save](active_record_callbacks.html#save-callbacks) and
+[commit](active_record_callbacks.html#commit-callbacks) callbacks.
+`after_commit` / `after_rollback` examples can be found
+[here](active_record_callbacks.html#after-commit-and-after-rollback).
 
 #### Update Callbacks
 
@@ -337,13 +390,23 @@ Update email sent to: john.doe@gmail.com
 * [`after_destroy`][]
 * [`after_commit`][] / [`after_rollback`][]
 
-[`after_destroy`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_destroy
-[`around_destroy`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-around_destroy
-[`before_destroy`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_destroy
+[`after_destroy`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_destroy
+[`around_destroy`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-around_destroy
+[`before_destroy`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-before_destroy
 
-NOTE: `before_destroy` callbacks should be placed before `dependent: :destroy` associations (or use the `prepend: true` option), to ensure they execute before the records are deleted by `dependent: :destroy`.
+NOTE: `before_destroy` callbacks should be placed before `dependent: :destroy`
+associations (or use the `prepend: true` option), to ensure they execute before
+the records are deleted by `dependent: :destroy`.
 
-WARNING. `after_commit` makes very different guarantees than `after_save`, `after_update`, and `after_destroy`. For example, if an exception occurs in an `after_save` the transaction will be rolled back and the data will not be persisted. However, anything that happens `after_commit` can guarantee the transaction has already been completed and the data was persisted to the database. More on [transactional callbacks](#transaction-callbacks) below.
+WARNING. `after_commit` makes very different guarantees than `after_save`,
+`after_update`, and `after_destroy`. For example, if an exception occurs in an
+`after_save` the transaction will be rolled back and the data will not be
+persisted. However, anything that happens `after_commit` can guarantee the
+transaction has already been completed and the data was persisted to the
+database. More on [transactional callbacks](#transaction-callbacks) below.
 
 ```ruby
 class User < ApplicationRecord
@@ -383,15 +446,21 @@ User with ID 1 destroyed successfully
 Notification sent to other users about user deletion
 ```
 
-`after_commit` / `after_rollback` examples can be found [here](active_record_callbacks.html#after-commit-and-after-rollback).
+`after_commit` / `after_rollback` examples can be found
+[here](active_record_callbacks.html#after-commit-and-after-rollback).
 
 ### `after_initialize` and `after_find`
 
-Whenever an Active Record object is instantiated, either by directly using `new` or when a record is loaded from the database, then the [`after_initialize`][] callback will be called. It can be useful to avoid the need to directly override your Active Record `initialize` method.
+Whenever an Active Record object is instantiated, either by directly using `new`
+or when a record is loaded from the database, then the [`after_initialize`][]
+callback will be called. It can be useful to avoid the need to directly override
+your Active Record `initialize` method.
 
-When loading a record from the database the [`after_find`][] callback will be called. `after_find` is called before `after_initialize` if both are defined.
+When loading a record from the database the [`after_find`][] callback will be
+called. `after_find` is called before `after_initialize` if both are defined.
 
-NOTE: The `after_initialize` and `after_find` callbacks have no `before_*` counterparts.
+NOTE: The `after_initialize` and `after_find` callbacks have no `before_*`
+counterparts.
 
 They can be registered just like the other Active Record callbacks.
 
@@ -418,12 +487,15 @@ You have initialized an object!
 => #<User id: 1>
 ```
 
-[`after_find`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_find
-[`after_initialize`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_initialize
+[`after_find`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_find
+[`after_initialize`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_initialize
 
 ### `after_touch`
 
-The [`after_touch`][] callback will be called whenever an Active Record object is touched.
+The [`after_touch`][] callback will be called whenever an Active Record object
+is touched.
 
 ```ruby
 class User < ApplicationRecord
@@ -473,7 +545,8 @@ Book/Library was touched
 => true
 ```
 
-[`after_touch`]: https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_touch
+[`after_touch`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Callbacks/ClassMethods.html#method-i-after_touch
 
 Running Callbacks
 -----------------
@@ -497,7 +570,8 @@ The following methods trigger callbacks:
 * `update!`
 * `valid?`
 
-Additionally, the `after_find` callback is triggered by the following finder methods:
+Additionally, the `after_find` callback is triggered by the following finder
+methods:
 
 * `all`
 * `first`
@@ -511,14 +585,18 @@ Additionally, the `after_find` callback is triggered by the following finder met
 * `sole`
 * `take`
 
-The `after_initialize` callback is triggered every time a new object of the class is initialized.
+The `after_initialize` callback is triggered every time a new object of the
+class is initialized.
 
-NOTE: The `find_by_*` and `find_by_*!` methods are dynamic finders generated automatically for every attribute. Learn more about them in the [Dynamic finders section](active_record_querying.html#dynamic-finders)
+NOTE: The `find_by_*` and `find_by_*!` methods are dynamic finders generated
+automatically for every attribute. Learn more about them in the [Dynamic finders
+section](active_record_querying.html#dynamic-finders)
 
 Skipping Callbacks
 ------------------
 
-Just as with [validations](active_record_validations.html), it is also possible to skip callbacks by using the following methods:
+Just as with [validations](active_record_validations.html), it is also possible
+to skip callbacks by using the following methods:
 
 * `decrement!`
 * `decrement_counter`
@@ -539,27 +617,43 @@ Just as with [validations](active_record_validations.html), it is also possible 
 * `upsert`
 * `upsert_all`
 
-WARNING. These methods should be used with caution because there may be important business rules and application logic in callbacks that you do not want to bypass. Bypassing them without understanding the potential implications may lead to invalid data.
+WARNING. These methods should be used with caution because there may be
+important business rules and application logic in callbacks that you do not want
+to bypass. Bypassing them without understanding the potential implications may
+lead to invalid data.
 
 Halting Execution
 -----------------
 
-As you start registering new callbacks for your models, they will be queued for execution. This queue will include all of your model's validations, the registered callbacks, and the database operation to be executed.
+As you start registering new callbacks for your models, they will be queued for
+execution. This queue will include all of your model's validations, the
+registered callbacks, and the database operation to be executed.
 
-The whole callback chain is wrapped in a transaction. If any callback raises an exception, the execution chain gets halted and a ROLLBACK is issued. To intentionally halt a chain use:
+The whole callback chain is wrapped in a transaction. If any callback raises an
+exception, the execution chain gets halted and a ROLLBACK is issued. To
+intentionally halt a chain use:
 
 ```ruby
 throw :abort
 ```
 
-WARNING. Any exception that is not `ActiveRecord::Rollback` or `ActiveRecord::RecordInvalid` will be re-raised by Rails after the callback chain is halted. Additionally, it may break code that does not expect methods like `save` and `update` (which normally try to return `true` or `false`) to raise an exception.
+WARNING. Any exception that is not `ActiveRecord::Rollback` or
+`ActiveRecord::RecordInvalid` will be re-raised by Rails after the callback
+chain is halted. Additionally, it may break code that does not expect methods
+like `save` and `update` (which normally try to return `true` or `false`) to
+raise an exception.
 
-NOTE: If an `ActiveRecord::RecordNotDestroyed` is raised within `after_destroy`, `before_destroy` or `around_destroy` callback, it will not be re-raised and the `destroy` method will return `false`.
+NOTE: If an `ActiveRecord::RecordNotDestroyed` is raised within `after_destroy`,
+`before_destroy` or `around_destroy` callback, it will not be re-raised and the
+`destroy` method will return `false`.
 
 Relational Callbacks
 --------------------
 
-Callbacks work through model relationships, and can even be defined by them. Suppose an example where a user has many articles. A user's articles should be destroyed if the user is destroyed. Let's add an `after_destroy` callback to the `User` model by way of its relationship to the `Article` model:
+Callbacks work through model relationships, and can even be defined by them.
+Suppose an example where a user has many articles. A user's articles should be
+destroyed if the user is destroyed. Let's add an `after_destroy` callback to the
+`User` model by way of its relationship to the `Article` model:
 
 ```ruby
 class User < ApplicationRecord
@@ -588,14 +682,17 @@ Article destroyed
 Association Callbacks
 ---------------------
 
-Association callbacks are similar to normal callbacks, but they are triggered by events in the life cycle of a collection. There are four available association callbacks:
+Association callbacks are similar to normal callbacks, but they are triggered by
+events in the life cycle of a collection. There are four available association
+callbacks:
 
 * `before_add`
 * `after_add`
 * `before_remove`
 * `after_remove`
 
-You define association callbacks by adding options to the association declaration. For example:
+You define association callbacks by adding options to the association
+declaration. For example:
 
 ```ruby
 class Author < ApplicationRecord
@@ -626,9 +723,9 @@ class Author < ApplicationRecord
 end
 ```
 
-If a `before_add` callback throws `:abort`, the object does not get added to
-the collection. Similarly, if a `before_remove` callback throws `:abort`, the
-object does not get removed from the collection:
+If a `before_add` callback throws `:abort`, the object does not get added to the
+collection. Similarly, if a `before_remove` callback throws `:abort`, the object
+does not get removed from the collection:
 
 ```ruby
 # book won't be added if the limit has been reached
@@ -637,7 +734,8 @@ def check_credit_limit(book)
 end
 ```
 
-NOTE: These callbacks are called only when the associated objects are added or removed through the association collection:
+NOTE: These callbacks are called only when the associated objects are added or
+removed through the association collection:
 
 ```ruby
 # Triggers `before_add` callback
@@ -651,15 +749,24 @@ book.update(author_id: 1)
 Conditional Callbacks
 ---------------------
 
-As with [validations](active_record_validations.html), we can also make the calling of a callback method conditional on the satisfaction of a given predicate. We can do this using the `:if` and `:unless` options, which can take a symbol, a `Proc` or an `Array`.
+As with [validations](active_record_validations.html), we can also make the
+calling of a callback method conditional on the satisfaction of a given
+predicate. We can do this using the `:if` and `:unless` options, which can take
+a symbol, a `Proc` or an `Array`.
 
-You may use the `:if` option when you want to specify under which conditions the callback **should** be called. If you want to specify the conditions under which the callback **should not** be called, then you may use the `:unless` option.
+You may use the `:if` option when you want to specify under which conditions the
+callback **should** be called. If you want to specify the conditions under which
+the callback **should not** be called, then you may use the `:unless` option.
 
 ### Using `:if` and `:unless` with a `Symbol`
 
-You can associate the `:if` and `:unless` options with a symbol corresponding to the name of a predicate method that will get called right before the callback.
+You can associate the `:if` and `:unless` options with a symbol corresponding to
+the name of a predicate method that will get called right before the callback.
 
-When using the `:if` option, the callback **won't** be executed if the predicate method returns **false**; when using the `:unless` option, the callback **won't** be executed if the predicate method returns **true**. This is the most common option.
+When using the `:if` option, the callback **won't** be executed if the predicate
+method returns **false**; when using the `:unless` option, the callback
+**won't** be executed if the predicate method returns **true**. This is the most
+common option.
 
 ```ruby
 class Order < ApplicationRecord
@@ -667,11 +774,14 @@ class Order < ApplicationRecord
 end
 ```
 
-Using this form of registration it is also possible to register several different predicates that should be called to check if the callback should be executed. We will cover this [below](#multiple-callback-conditions).
+Using this form of registration it is also possible to register several
+different predicates that should be called to check if the callback should be
+executed. We will cover this [below](#multiple-callback-conditions).
 
 ### Using `:if` and `:unless` with a `Proc`
 
-It is possible to associate `:if` and `:unless` with a `Proc` object. This option is best suited when writing short validation methods, usually one-liners:
+It is possible to associate `:if` and `:unless` with a `Proc` object. This
+option is best suited when writing short validation methods, usually one-liners:
 
 ```ruby
 class Order < ApplicationRecord
@@ -680,7 +790,8 @@ class Order < ApplicationRecord
 end
 ```
 
-As the proc is evaluated in the context of the object, it is also possible to write this as:
+As the proc is evaluated in the context of the object, it is also possible to
+write this as:
 
 ```ruby
 class Order < ApplicationRecord
@@ -690,7 +801,8 @@ end
 
 ### Multiple Callback Conditions
 
-The `:if` and `:unless` options also accept an array of procs or method names as symbols:
+The `:if` and `:unless` options also accept an array of procs or method names as
+symbols:
 
 ```ruby
 class Comment < ApplicationRecord
@@ -720,14 +832,21 @@ class Comment < ApplicationRecord
 end
 ```
 
-The callback only runs when all the `:if` conditions and none of the `:unless` conditions are evaluated to `true`.
+The callback only runs when all the `:if` conditions and none of the `:unless`
+conditions are evaluated to `true`.
 
 Callback Classes
 ----------------
 
-Sometimes the callback methods that you'll write will be useful enough to be reused by other models. Active Record makes it possible to create classes that encapsulate the callback methods, so they can be reused.
+Sometimes the callback methods that you'll write will be useful enough to be
+reused by other models. Active Record makes it possible to create classes that
+encapsulate the callback methods, so they can be reused.
 
-Here's an example where we create a class with an `after_destroy` callback to deal with the cleanup of discarded files on the filesystem. This behavior may not be unique to our `PictureFile` model and we may want to share it, so it's a good idea to encapsulate this into a separate class. This will make testing that behavior and changing it much easier.
+Here's an example where we create a class with an `after_destroy` callback to
+deal with the cleanup of discarded files on the filesystem. This behavior may
+not be unique to our `PictureFile` model and we may want to share it, so it's a
+good idea to encapsulate this into a separate class. This will make testing that
+behavior and changing it much easier.
 
 ```ruby
 class FileDestroyerCallback
@@ -739,7 +858,9 @@ class FileDestroyerCallback
 end
 ```
 
-When declared inside a class, as above, the callback methods will receive the model object as a parameter. This will work on any model that uses the class like so:
+When declared inside a class, as above, the callback methods will receive the
+model object as a parameter. This will work on any model that uses the class
+like so:
 
 ```ruby
 class PictureFile < ApplicationRecord
@@ -747,7 +868,10 @@ class PictureFile < ApplicationRecord
 end
 ```
 
-Note that we needed to instantiate a new `FileDestroyerCallback` object, since we declared our callback as an instance method. This is particularly useful if the callbacks make use of the state of the instantiated object. Often, however, it will make more sense to declare the callbacks as class methods:
+Note that we needed to instantiate a new `FileDestroyerCallback` object, since
+we declared our callback as an instance method. This is particularly useful if
+the callbacks make use of the state of the instantiated object. Often, however,
+it will make more sense to declare the callbacks as class methods:
 
 ```ruby
 class FileDestroyerCallback
@@ -759,7 +883,8 @@ class FileDestroyerCallback
 end
 ```
 
-When the callback method is declared this way, it won't be necessary to instantiate a new `FileDestroyerCallback` object in our model.
+When the callback method is declared this way, it won't be necessary to
+instantiate a new `FileDestroyerCallback` object in our model.
 
 ```ruby
 class PictureFile < ApplicationRecord
@@ -774,9 +899,19 @@ Transaction Callbacks
 
 ### `after_commit` and `after_rollback`
 
-Two additional callbacks are triggered by the completion of a database transaction: [`after_commit`][] and [`after_rollback`][]. These callbacks are very similar to the `after_save` callback except that they don't execute until after database changes have either been committed or rolled back. They are most useful when your Active Record models need to interact with external systems that are not part of the database transaction.
+Two additional callbacks are triggered by the completion of a database
+transaction: [`after_commit`][] and [`after_rollback`][]. These callbacks are
+very similar to the `after_save` callback except that they don't execute until
+after database changes have either been committed or rolled back. They are most
+useful when your Active Record models need to interact with external systems
+that are not part of the database transaction.
 
-Consider if the `PictureFile` model, from the previous example, needs to delete a file after the corresponding record is destroyed. If anything raises an exception after the `after_destroy` callback is called and the transaction rolls back, then the file will have been deleted and the model will be left in an inconsistent state. For example, suppose that `picture_file_2` in the code below is not valid and the `save!` method raises an error.
+Consider if the `PictureFile` model, from the previous example, needs to delete
+a file after the corresponding record is destroyed. If anything raises an
+exception after the `after_destroy` callback is called and the transaction rolls
+back, then the file will have been deleted and the model will be left in an
+inconsistent state. For example, suppose that `picture_file_2` in the code below
+is not valid and the `save!` method raises an error.
 
 ```ruby
 PictureFile.transaction do
@@ -799,11 +934,19 @@ class PictureFile < ApplicationRecord
 end
 ```
 
-NOTE: The `:on` option specifies when a callback will be fired. If you don't supply the `:on` option the callback will fire for every action.
+NOTE: The `:on` option specifies when a callback will be fired. If you don't
+supply the `:on` option the callback will fire for every action.
 
-WARNING. When a transaction completes, the `after_commit` or `after_rollback` callbacks are called for all models created, updated, or destroyed within that transaction. However, if an exception is raised within one of these callbacks, the exception will bubble up and any remaining `after_commit` or `after_rollback` methods will _not_ be executed. As such, if your callback code could raise an exception, you'll need to rescue it and handle it within the callback in order to allow other callbacks to run.
+WARNING. When a transaction completes, the `after_commit` or `after_rollback`
+callbacks are called for all models created, updated, or destroyed within that
+transaction. However, if an exception is raised within one of these callbacks,
+the exception will bubble up and any remaining `after_commit` or
+`after_rollback` methods will _not_ be executed. As such, if your callback code
+could raise an exception, you'll need to rescue it and handle it within the
+callback in order to allow other callbacks to run.
 
-WARNING. The code executed within `after_commit` or `after_rollback` callbacks is itself not enclosed within a transaction.
+WARNING. The code executed within `after_commit` or `after_rollback` callbacks
+is itself not enclosed within a transaction.
 
 WARNING. In the context of a single transaction, if you interact with multiple
 loaded objects that represent the same record in the database, there's a crucial
@@ -838,7 +981,10 @@ class PictureFile < ApplicationRecord
 end
 ```
 
-WARNING. Using both `after_create_commit` and `after_update_commit` with the same method name will only allow the last callback defined to take effect, as they both internally alias to `after_commit` which overrides previously defined callbacks with the same method name.
+WARNING. Using both `after_create_commit` and `after_update_commit` with the
+same method name will only allow the last callback defined to take effect, as
+they both internally alias to `after_commit` which overrides previously defined
+callbacks with the same method name.
 
 ```ruby
 class User < ApplicationRecord
@@ -861,7 +1007,8 @@ User was saved to database
 
 ### `after_save_commit`
 
-There is also [`after_save_commit`][], which is an alias for using the `after_commit` callback for both create and update together:
+There is also [`after_save_commit`][], which is an alias for using the
+`after_commit` callback for both create and update together:
 
 ```ruby
 class User < ApplicationRecord
@@ -895,7 +1042,8 @@ class User < ActiveRecord::Base
 end
 ```
 
-NOTE: This applies to all `after_*_commit` variations too, such as `after_destroy_commit`.
+NOTE: This applies to all `after_*_commit` variations too, such as
+`after_destroy_commit`.
 
 This order can be set via configuration:
 
@@ -903,10 +1051,15 @@ This order can be set via configuration:
 config.active_record.run_after_transaction_callbacks_in_order_defined = false
 ```
 
-When set to `true` (the default from Rails 7.1), callbacks are executed in the order they
-are defined. When set to `false`, the order is reversed, just like in the example above.
+When set to `true` (the default from Rails 7.1), callbacks are executed in the
+order they are defined. When set to `false`, the order is reversed, just like in
+the example above.
 
-[`after_create_commit`]: https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_create_commit
-[`after_destroy_commit`]: https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_destroy_commit
-[`after_save_commit`]: https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_save_commit
-[`after_update_commit`]: https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_update_commit
+[`after_create_commit`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_create_commit
+[`after_destroy_commit`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_destroy_commit
+[`after_save_commit`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_save_commit
+[`after_update_commit`]:
+    https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html#method-i-after_update_commit

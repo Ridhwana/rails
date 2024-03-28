@@ -219,8 +219,8 @@ end
 ```
 
 ```irb
-irb> user = User.new(name: "", email: "john.doe@me.com", password: "abc123456")
-=> #<User id: nil, email: "john.doe@me.com", created_at: nil, updated_at: nil, name: "">
+irb> user = User.new(name: "", email: "john.doe@example.com", password: "abc123456")
+=> #<User id: nil, email: "john.doe@example.com", created_at: nil, updated_at: nil, name: "">
 
 irb> user.valid?
 Name normalized to

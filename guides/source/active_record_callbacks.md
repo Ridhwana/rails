@@ -415,23 +415,22 @@ class User < ApplicationRecord
   after_destroy :notify_users
 
   private
-
-  def check_admin_count
-    if User.where(admin: true).count == 1 && admin?
-      raise StandardError.new("Cannot delete the last admin user")
+    def check_admin_count
+      if User.where(admin: true).count == 1 && admin?
+        raise StandardError.new("Cannot delete the last admin user")
+      end
+      Rails.logger.info("Checked the admin count")
     end
-    Rails.logger.info("Checked the admin count")
-  end
 
-  def log_destroy_operation
-    Rails.logger.info("About to destroy user with ID #{id}")
-    yield
-    Rails.logger.info("User with ID #{id} destroyed successfully")
-  end
+    def log_destroy_operation
+      Rails.logger.info("About to destroy user with ID #{id}")
+      yield
+      Rails.logger.info("User with ID #{id} destroyed successfully")
+    end
 
-  def notify_users
-    Rails.logger.info("Notification sent to other users about user deletion")
-  end
+    def notify_users
+      Rails.logger.info("Notification sent to other users about user deletion")
+    end
 end
 ```
 

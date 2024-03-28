@@ -352,23 +352,22 @@ class User < ApplicationRecord
   after_update :send_update_email
 
   private
-
-  def check_role_change
-    if role_changed?
-      Rails.logger.info("User role changed to #{role}")
+    def check_role_change
+      if role_changed?
+        Rails.logger.info("User role changed to #{role}")
+      end
     end
-  end
 
-  def log_updating
-    Rails.logger.info("Updating user with email: #{email}")
-    yield
-    Rails.logger.info("User updated with email: #{email}")
-  end
+    def log_updating
+      Rails.logger.info("Updating user with email: #{email}")
+      yield
+      Rails.logger.info("User updated with email: #{email}")
+    end
 
-  def send_update_email
-    UserMailer.update_email(self).deliver_later
-    Rails.logger.info("Update email sent to: #{email}")
-  end
+    def send_update_email
+      UserMailer.update_email(self).deliver_later
+      Rails.logger.info("Update email sent to: #{email}")
+    end
 end
 ```
 

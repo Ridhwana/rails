@@ -302,13 +302,13 @@ end
 ```
 
 ```irb
-irb> user = User.create(name: "John Doe", email: "john.doe@gmail.com")
+irb> user = User.create(name: "John Doe", email: "john.doe@example.com")
 
 User role set to default: user
-Creating user with email: john.doe@gmail.com
-User created with email: john.doe@gmail.com
-User welcome email sent to: john.doe@gmail.com
-=> #<User id: 10, email: "john.doe@gmail.com", created_at: "2024-03-20 16:19:52.405195000 +0000", updated_at: "2024-03-20 16:19:52.405195000 +0000", name: "John Doe">
+Creating user with email: john.doe@example.com
+User created with email: john.doe@example.com
+User welcome email sent to: john.doe@example.com
+=> #<User id: 10, email: "john.doe@example.com", created_at: "2024-03-20 16:19:52.405195000 +0000", updated_at: "2024-03-20 16:19:52.405195000 +0000", name: "John Doe">
 ```
 
 ### Updating an Object

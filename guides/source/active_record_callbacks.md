@@ -561,6 +561,7 @@ The following methods trigger callbacks:
 * `update`
 * `update!`
 * `valid?`
+* `validate`
 
 Additionally, the `after_find` callback is triggered by the following finder
 methods:

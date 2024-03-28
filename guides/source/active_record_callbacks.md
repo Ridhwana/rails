@@ -8,7 +8,7 @@ objects.
 
 After reading this guide, you will know:
 
-* When certain events occur during the life of an Active Record object
+* When certain events occur during the life of an Active Record object.
 * How to create callback methods that respond to events in the object life
   cycle.
 * How to create special classes that encapsulate common behavior for your

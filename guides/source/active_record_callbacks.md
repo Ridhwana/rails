@@ -241,22 +241,21 @@ class User < ApplicationRecord
   after_save :send_welcome_email
 
   private
+    def encrypt_password
+      self.password = BCrypt::Password.create(password)
+      Rails.logger.info("Password encrypted for user with email: #{email}")
+    end
 
-  def encrypt_password
-    self.password = BCrypt::Password.create(password)
-    Rails.logger.info("Password encrypted for user with email: #{email}")
-  end
+    def log_saving
+      Rails.logger.info("Saving user with email: #{email}")
+      yield
+      Rails.logger.info("User saved with email: #{email}")
+    end
 
-  def log_saving
-    Rails.logger.info("Saving user with email: #{email}")
-    yield
-    Rails.logger.info("User saved with email: #{email}")
-  end
-
-  def update_cache
-    Rails.cache.write("user_data", attributes)
-    Rails.logger.info("Update Cache")
-  end
+    def update_cache
+      Rails.cache.write("user_data", attributes)
+      Rails.logger.info("Update Cache")
+    end
 end
 ```
 

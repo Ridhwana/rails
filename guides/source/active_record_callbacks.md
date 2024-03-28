@@ -676,8 +676,8 @@ Association Callbacks
 ---------------------
 
 Association callbacks are similar to normal callbacks, but they are triggered by
-events in the life cycle of a collection. There are four available association
-callbacks:
+events in the life cycle of the associated collection. There are four available
+association callbacks:
 
 * `before_add`
 * `after_add`

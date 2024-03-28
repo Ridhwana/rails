@@ -374,13 +374,13 @@ end
 
 ```irb
 irb> user = User.find(1)
-=> #<User id: 1, email: "john.doe@gmail.com", created_at: "2024-03-20 16:19:52.405195000 +0000", updated_at: "2024-03-20 16:19:52.405195000 +0000", name: "John Doe", role: "admin" >
+=> #<User id: 1, email: "john.doe@example.com", created_at: "2024-03-20 16:19:52.405195000 +0000", updated_at: "2024-03-20 16:19:52.405195000 +0000", name: "John Doe", role: "admin" >
 
 irb> user.update(role: "admin")
 User role changed to admin
-Updating user with email: john.doe@gmail.com
-User updated with email: john.doe@gmail.com
-Update email sent to: john.doe@gmail.com
+Updating user with email: john.doe@example.com
+User updated with email: john.doe@example.com
+Update email sent to: john.doe@example.com
 ```
 
 ### Destroying an Object

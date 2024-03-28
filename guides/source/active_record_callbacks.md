@@ -237,7 +237,7 @@ after and around the object is saved.
 class User < ApplicationRecord
   before_save :encrypt_password
   around_save :log_saving
-  after_save :send_welcome_email
+  after_save :update_cache
 
   private
     def encrypt_password

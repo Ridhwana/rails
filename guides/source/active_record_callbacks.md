@@ -333,12 +333,9 @@ However, it consistently executes after the more specific callbacks
 `after_create` and `after_update`, regardless of the sequence in which the macro
 calls were made.
 
-We've already covered
-[validation](active_record_callbacks.html#validation-callbacks),
-[save](active_record_callbacks.html#save-callbacks) and
-[commit](active_record_callbacks.html#commit-callbacks) callbacks.
-`after_commit` / `after_rollback` examples can be found
-[here](active_record_callbacks.html#after-commit-and-after-rollback).
+We've already covered [validation](#validation-callbacks) and
+[save](#save-callbacks) callbacks. `after_commit` / `after_rollback` examples
+can be found [here](#after-commit-and-after-rollback).
 
 #### Update Callbacks
 

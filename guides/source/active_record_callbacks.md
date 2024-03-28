@@ -205,17 +205,16 @@ class User < ApplicationRecord
   after_validation :check_errors
 
   private
-
-  def normalize_name
-    self.name = name.downcase.titleize if name.present?
-    Rails.logger.info("Name normalized to #{name}")
-  end
-
-  def check_errors
-    if errors.any?
-      Rails.logger.error("Validation failed: #{errors.full_messages.join(', ')}")
+    def normalize_name
+      self.name = name.downcase.titleize if name.present?
+      Rails.logger.info("Name normalized to #{name}")
     end
-  end
+
+    def check_errors
+      if errors.any?
+        Rails.logger.error("Validation failed: #{errors.full_messages.join(', ')}")
+      end
+    end
 end
 ```
 

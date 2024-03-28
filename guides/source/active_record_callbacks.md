@@ -261,13 +261,13 @@ end
 ```
 
 ```irb
-irb> user = User.create(name: "Jane Doe", email: "jane.doe@gmail.com")
+irb> user = User.create(name: "Jane Doe", email: "jane.doe@example.com")
 
-Password encrypted for user with email: jane.doe@gmail.com
-Saving user with email: jane.doe@gmail.com
-User saved with email: jane.doe@gmail.com
+Password encrypted for user with email: jane.doe@example.com
+Saving user with email: jane.doe@example.com
+User saved with email: jane.doe@example.com
 Update Cache
-=> #<User id: 1, email: "jane.doe@gmail.com", created_at: "2024-03-20 16:02:43.685500000 +0000", updated_at: "2024-03-20 16:02:43.685500000 +0000", name: "Jane Doe">
+=> #<User id: 1, email: "jane.doe@example.com", created_at: "2024-03-20 16:02:43.685500000 +0000", updated_at: "2024-03-20 16:02:43.685500000 +0000", name: "Jane Doe">
 ```
 
 #### Create Callbacks

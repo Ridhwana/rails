@@ -365,6 +365,92 @@ render(partial: "hotels/hotel", collection: @hotels, formats: :html, cached: tru
 
 Will load a file named `hotels/hotel.html.erb` in any file MIME type, for example you could include this partial in a JavaScript file.
 
+### Conditional GETs
+
+Conditional GETs are a feature of the HTTP specification that provide a way for web servers to tell browsers that the response to a GET request hasn't changed since the last request and can be safely pulled from the browser cache.
+
+They work by using the `HTTP_IF_NONE_MATCH` and `HTTP_IF_MODIFIED_SINCE` headers to pass back and forth both a unique content identifier and the timestamp of when the content was last changed. If the browser makes a request where the content identifier (ETag) or last modified since timestamp matches the server's version then the server only needs to send back an empty response with a not modified status.
+
+It is the server's (i.e. our) responsibility to look for a last modified timestamp and the if-none-match header and determine whether or not to send back the full response. With conditional-get support in Rails this is a pretty easy task:
+
+```ruby
+class ProductsController < ApplicationController
+  def show
+    @product = Product.find(params[:id])
+
+    # If the request is stale according to the given timestamp and etag value
+    # (i.e. it needs to be processed again) then execute this block
+    if stale?(last_modified: @product.updated_at.utc, etag: @product.cache_key_with_version)
+      respond_to do |wants|
+        # ... normal response processing
+      end
+    end
+
+    # If the request is fresh (i.e. it's not modified) then you don't need to do
+    # anything. The default render checks for this using the parameters
+    # used in the previous call to stale? and will automatically send a
+    # :not_modified. So that's it, you're done.
+  end
+end
+```
+
+Instead of an options hash, you can also simply pass in a model. Rails will use the `updated_at` and `cache_key_with_version` methods for setting `last_modified` and `etag`:
+
+```ruby
+class ProductsController < ApplicationController
+  def show
+    @product = Product.find(params[:id])
+
+    if stale?(@product)
+      respond_to do |wants|
+        # ... normal response processing
+      end
+    end
+  end
+end
+```
+
+If you don't have any special response processing and are using the default rendering mechanism (i.e. you're not using `respond_to` or calling render yourself) then you've got an easy helper in `fresh_when`:
+
+```ruby
+class ProductsController < ApplicationController
+  # This will automatically send back a :not_modified if the request is fresh,
+  # and will render the default template (product.*) if it's stale.
+
+  def show
+    @product = Product.find(params[:id])
+    fresh_when last_modified: @product.published_at.utc, etag: @product
+  end
+end
+```
+
+When both `last_modified` and `etag` are set, behavior varies depending on the value of `config.action_dispatch.strict_freshness`.
+If set to `true`, only the `etag` is considered as specified by RFC 7232 section 6.
+If set to `false`, both are considered and the cache is considered fresh if both conditions are satisfied, as was the historical Rails behavior.
+
+Sometimes we want to cache response, for example a static page, that never gets
+expired. To achieve this, we can use `http_cache_forever` helper and by doing
+so browser and proxies will cache it indefinitely.
+
+By default cached responses will be private, cached only on the user's web
+browser. To allow proxies to cache the response, set `public: true` to indicate
+that they can serve the cached response to all users.
+
+Using this helper, `last_modified` header is set to `Time.new(2011, 1, 1).utc`
+and `expires` header is set to a 100 years.
+
+WARNING: Use this method carefully as browser/proxy won't be able to invalidate
+the cached response unless browser cache is forcefully cleared.
+
+```ruby
+class HomeController < ApplicationController
+  def index
+    http_cache_forever(public: true) do
+      render
+    end
+  end
+end
+```
 
 ### SQL Caching
 
@@ -804,94 +890,6 @@ custom class.
 config.cache_store = MyCacheStore.new
 ```
 
-
-Conditional GET Support
------------------------
-
-Conditional GETs are a feature of the HTTP specification that provide a way for web servers to tell browsers that the response to a GET request hasn't changed since the last request and can be safely pulled from the browser cache.
-
-They work by using the `HTTP_IF_NONE_MATCH` and `HTTP_IF_MODIFIED_SINCE` headers to pass back and forth both a unique content identifier and the timestamp of when the content was last changed. If the browser makes a request where the content identifier (ETag) or last modified since timestamp matches the server's version then the server only needs to send back an empty response with a not modified status.
-
-It is the server's (i.e. our) responsibility to look for a last modified timestamp and the if-none-match header and determine whether or not to send back the full response. With conditional-get support in Rails this is a pretty easy task:
-
-```ruby
-class ProductsController < ApplicationController
-  def show
-    @product = Product.find(params[:id])
-
-    # If the request is stale according to the given timestamp and etag value
-    # (i.e. it needs to be processed again) then execute this block
-    if stale?(last_modified: @product.updated_at.utc, etag: @product.cache_key_with_version)
-      respond_to do |wants|
-        # ... normal response processing
-      end
-    end
-
-    # If the request is fresh (i.e. it's not modified) then you don't need to do
-    # anything. The default render checks for this using the parameters
-    # used in the previous call to stale? and will automatically send a
-    # :not_modified. So that's it, you're done.
-  end
-end
-```
-
-Instead of an options hash, you can also simply pass in a model. Rails will use the `updated_at` and `cache_key_with_version` methods for setting `last_modified` and `etag`:
-
-```ruby
-class ProductsController < ApplicationController
-  def show
-    @product = Product.find(params[:id])
-
-    if stale?(@product)
-      respond_to do |wants|
-        # ... normal response processing
-      end
-    end
-  end
-end
-```
-
-If you don't have any special response processing and are using the default rendering mechanism (i.e. you're not using `respond_to` or calling render yourself) then you've got an easy helper in `fresh_when`:
-
-```ruby
-class ProductsController < ApplicationController
-  # This will automatically send back a :not_modified if the request is fresh,
-  # and will render the default template (product.*) if it's stale.
-
-  def show
-    @product = Product.find(params[:id])
-    fresh_when last_modified: @product.published_at.utc, etag: @product
-  end
-end
-```
-
-When both `last_modified` and `etag` are set, behavior varies depending on the value of `config.action_dispatch.strict_freshness`.
-If set to `true`, only the `etag` is considered as specified by RFC 7232 section 6.
-If set to `false`, both are considered and the cache is considered fresh if both conditions are satisfied, as was the historical Rails behavior.
-
-Sometimes we want to cache response, for example a static page, that never gets
-expired. To achieve this, we can use `http_cache_forever` helper and by doing
-so browser and proxies will cache it indefinitely.
-
-By default cached responses will be private, cached only on the user's web
-browser. To allow proxies to cache the response, set `public: true` to indicate
-that they can serve the cached response to all users.
-
-Using this helper, `last_modified` header is set to `Time.new(2011, 1, 1).utc`
-and `expires` header is set to a 100 years.
-
-WARNING: Use this method carefully as browser/proxy won't be able to invalidate
-the cached response unless browser cache is forcefully cleared.
-
-```ruby
-class HomeController < ApplicationController
-  def index
-    http_cache_forever(public: true) do
-      render
-    end
-  end
-end
-```
 
 ### Strong v/s Weak ETags
 

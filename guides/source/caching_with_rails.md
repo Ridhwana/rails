@@ -21,13 +21,13 @@ What is Caching?
 ----------------
 
 Caching means storing content generated during the request-response cycle and
-reusing it when responding to similar requests. It's like keeping your favorite
-coffee mug right on your desk instead of in the kitchen cabinet — it’s ready
-when you need it, saving you time and effort.
+reusing it when responding to similar requests. It avoids doing an expensive
+operation more than once, think of it like saving the result of something
+expensive so you can look it up later instead of recomputing it.
 
 Caching is one of the most effective ways to boost an application's performance.
-It allows websites running on modest infrastructure — a single server with a
-single database — to sustain thousands of concurrent users.
+It allows websites running on modest infrastructure, a single server with a
+single database, to sustain thousands of concurrent users.
 
 Rails provides a set of caching features out of the box which allows you to not
 only cache data, but also to tackle challenges like cache expiration, cache

@@ -53,6 +53,89 @@ For instance, it will not impact low-level caching, that we address
 
 [`config.action_controller.perform_caching`]: configuring.html#config-action-controller-perform-caching
 
+### Low-Level Caching using `Rails.cache`
+
+Sometimes you need to cache a particular value or query result instead of caching view fragments. Rails' caching mechanism works great for storing any serializable information.
+
+An efficient way to implement low-level caching is using the `Rails.cache.fetch` method. This method handles both _reading from_ and _writing to_ the cache. When called with a single argument, it fetches and returns the cached value for the given key. If a block is passed, the block is executed only on a cache miss. The block's return value is written to the cache under the given cache key and returned. In case of cache hit, the cached value is returned directly without executing the block.
+
+The keys used in a cache can be any object that responds to either `cache_key` or
+`to_param`. You can implement the `cache_key` method on your classes if you need
+to generate custom keys. Active Record will generate keys based on the class name
+and record id.
+
+You can use Hashes and Arrays of values as cache keys.
+
+```ruby
+# This is a valid cache key
+Rails.cache.read(site: "mysite", owners: [owner_1, owner_2])
+```
+
+Consider the following example. An application has a `Product` model with an instance method that looks up the product's price on a competing website. The data returned by this method would be perfect for low-level caching:
+
+```ruby
+class Product < ApplicationRecord
+  def competing_price
+    Rails.cache.fetch("#{cache_key_with_version}/competing_price", expires_in: 12.hours) do
+      Competitor::API.find_price(id)
+    end
+  end
+end
+```
+
+NOTE: Notice that in this example we used the `cache_key_with_version` method, so the resulting cache key will be something like `products/233-20140225082222765838000/competing_price`. `cache_key_with_version` generates a string based on the model's class name, `id`, and `updated_at` attributes. This is a common convention and has the benefit of invalidating the cache whenever the product is updated. In general, when you use low-level caching, you need to generate a cache key.
+
+Below are some more examples of how to use low-level caching:
+
+```ruby
+# Store a value in the cache
+Rails.cache.write("greeting", "Hello, world!")
+
+# Retrieve the value from the cache
+greeting = Rails.cache.read("greeting")
+puts greeting # Output: Hello, world!
+
+# Fetch a value with a block to set a default if it doesn’t exist
+welcome_message = Rails.cache.fetch("welcome_message") { "Welcome to Rails!" }
+puts welcome_message # Output: Welcome to Rails!
+
+# Delete a value from the cache
+Rails.cache.delete("greeting")
+```
+
+INFO: The keys you use on `Rails.cache` will not be the same as those actually
+used with the storage engine. They may be modified with a namespace or altered
+to fit technology backend constraints. This means, for instance, that you can't
+save values with `Rails.cache` and then try to pull them out with the
+[`dalli`](https://github.com/petergoldstein/dalli) gem. However, you also don't
+need to worry about exceeding the memcached size limit or violating syntax
+rules.
+
+#### Avoid Caching Instances of Active Record Objects
+
+Consider this example, which stores a list of Active Record objects representing superusers in the cache:
+
+```ruby
+# super_admins is an expensive SQL query, so don't run it too often
+Rails.cache.fetch("super_admin_users", expires_in: 12.hours) do
+  User.super_admins.to_a
+end
+```
+
+You should __avoid__ this pattern. Why? Because the instance could change. In production, attributes
+on it could differ, or the record could be deleted. And in development, it works unreliably with
+cache stores that reload code when you make changes.
+
+Instead, cache the ID or some other primitive data type. For example:
+
+```ruby
+# super_admins is an expensive SQL query, so don't run it too often
+ids = Rails.cache.fetch("super_admin_user_ids", expires_in: 12.hours) do
+  User.super_admins.pluck(:id)
+end
+User.where(id: ids).to_a
+```
+
 ### Fragment Caching
 
 Dynamic web applications usually build pages with a variety of components not
@@ -282,88 +365,6 @@ render(partial: "hotels/hotel", collection: @hotels, formats: :html, cached: tru
 
 Will load a file named `hotels/hotel.html.erb` in any file MIME type, for example you could include this partial in a JavaScript file.
 
-### Low-Level Caching using `Rails.cache`
-
-Sometimes you need to cache a particular value or query result instead of caching view fragments. Rails' caching mechanism works great for storing any serializable information.
-
-An efficient way to implement low-level caching is using the `Rails.cache.fetch` method. This method handles both _reading from_ and _writing to_ the cache. When called with a single argument, it fetches and returns the cached value for the given key. If a block is passed, the block is executed only on a cache miss. The block's return value is written to the cache under the given cache key and returned. In case of cache hit, the cached value is returned directly without executing the block.
-
-The keys used in a cache can be any object that responds to either `cache_key` or
-`to_param`. You can implement the `cache_key` method on your classes if you need
-to generate custom keys. Active Record will generate keys based on the class name
-and record id.
-
-You can use Hashes and Arrays of values as cache keys.
-
-```ruby
-# This is a valid cache key
-Rails.cache.read(site: "mysite", owners: [owner_1, owner_2])
-```
-
-Consider the following example. An application has a `Product` model with an instance method that looks up the product's price on a competing website. The data returned by this method would be perfect for low-level caching:
-
-```ruby
-class Product < ApplicationRecord
-  def competing_price
-    Rails.cache.fetch("#{cache_key_with_version}/competing_price", expires_in: 12.hours) do
-      Competitor::API.find_price(id)
-    end
-  end
-end
-```
-
-NOTE: Notice that in this example we used the `cache_key_with_version` method, so the resulting cache key will be something like `products/233-20140225082222765838000/competing_price`. `cache_key_with_version` generates a string based on the model's class name, `id`, and `updated_at` attributes. This is a common convention and has the benefit of invalidating the cache whenever the product is updated. In general, when you use low-level caching, you need to generate a cache key.
-
-Below are some more examples of how to use low-level caching:
-
-```ruby
-# Store a value in the cache
-Rails.cache.write("greeting", "Hello, world!")
-
-# Retrieve the value from the cache
-greeting = Rails.cache.read("greeting")
-puts greeting # Output: Hello, world!
-
-# Fetch a value with a block to set a default if it doesn’t exist
-welcome_message = Rails.cache.fetch("welcome_message") { "Welcome to Rails!" }
-puts welcome_message # Output: Welcome to Rails!
-
-# Delete a value from the cache
-Rails.cache.delete("greeting")
-```
-
-INFO: The keys you use on `Rails.cache` will not be the same as those actually
-used with the storage engine. They may be modified with a namespace or altered
-to fit technology backend constraints. This means, for instance, that you can't
-save values with `Rails.cache` and then try to pull them out with the
-[`dalli`](https://github.com/petergoldstein/dalli) gem. However, you also don't
-need to worry about exceeding the memcached size limit or violating syntax
-rules.
-
-#### Avoid Caching Instances of Active Record Objects
-
-Consider this example, which stores a list of Active Record objects representing superusers in the cache:
-
-```ruby
-# super_admins is an expensive SQL query, so don't run it too often
-Rails.cache.fetch("super_admin_users", expires_in: 12.hours) do
-  User.super_admins.to_a
-end
-```
-
-You should __avoid__ this pattern. Why? Because the instance could change. In production, attributes
-on it could differ, or the record could be deleted. And in development, it works unreliably with
-cache stores that reload code when you make changes.
-
-Instead, cache the ID or some other primitive data type. For example:
-
-```ruby
-# super_admins is an expensive SQL query, so don't run it too often
-ids = Rails.cache.fetch("super_admin_user_ids", expires_in: 12.hours) do
-  User.super_admins.pluck(:id)
-end
-User.where(id: ids).to_a
-```
 
 ### SQL Caching
 

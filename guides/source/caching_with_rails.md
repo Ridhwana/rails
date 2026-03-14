@@ -288,6 +288,18 @@ Sometimes you need to cache a particular value or query result instead of cachin
 
 An efficient way to implement low-level caching is using the `Rails.cache.fetch` method. This method handles both _reading from_ and _writing to_ the cache. When called with a single argument, it fetches and returns the cached value for the given key. If a block is passed, the block is executed only on a cache miss. The block's return value is written to the cache under the given cache key and returned. In case of cache hit, the cached value is returned directly without executing the block.
 
+The keys used in a cache can be any object that responds to either `cache_key` or
+`to_param`. You can implement the `cache_key` method on your classes if you need
+to generate custom keys. Active Record will generate keys based on the class name
+and record id.
+
+You can use Hashes and Arrays of values as cache keys.
+
+```ruby
+# This is a valid cache key
+Rails.cache.read(site: "mysite", owners: [owner_1, owner_2])
+```
+
 Consider the following example. An application has a `Product` model with an instance method that looks up the product's price on a competing website. The data returned by this method would be perfect for low-level caching:
 
 ```ruby
@@ -319,6 +331,14 @@ puts welcome_message # Output: Welcome to Rails!
 # Delete a value from the cache
 Rails.cache.delete("greeting")
 ```
+
+INFO: The keys you use on `Rails.cache` will not be the same as those actually
+used with the storage engine. They may be modified with a namespace or altered
+to fit technology backend constraints. This means, for instance, that you can't
+save values with `Rails.cache` and then try to pull them out with the
+[`dalli`](https://github.com/petergoldstein/dalli) gem. However, you also don't
+need to worry about exceeding the memcached size limit or violating syntax
+rules.
 
 #### Avoid Caching Instances of Active Record Objects
 
@@ -783,27 +803,6 @@ custom class.
 config.cache_store = MyCacheStore.new
 ```
 
-Cache Keys
-----------
-
-The keys used in a cache can be any object that responds to either `cache_key` or
-`to_param`. You can implement the `cache_key` method on your classes if you need
-to generate custom keys. Active Record will generate keys based on the class name
-and record id.
-
-You can use Hashes and Arrays of values as cache keys.
-
-```ruby
-# This is a valid cache key
-Rails.cache.read(site: "mysite", owners: [owner_1, owner_2])
-```
-
-The keys you use on `Rails.cache` will not be the same as those actually used with
-the storage engine. They may be modified with a namespace or altered to fit
-technology backend constraints. This means, for instance, that you can't save
-values with `Rails.cache` and then try to pull them out with the `dalli` gem.
-However, you also don't need to worry about exceeding the memcached size limit or
-violating syntax rules.
 
 Conditional GET Support
 -----------------------

@@ -138,9 +138,10 @@ User.where(id: ids).to_a
 
 ### Fragment Caching
 
-Dynamic web applications usually build pages with a variety of components not
-all of which have the same caching characteristics. When different parts of the
-page need to be cached and expired separately you can use Fragment Caching.
+Dynamic web applications build pages with a variety of components not all of
+which have the same caching characteristics. For example, a static component,
+such as a site logo, will have a longer caching duration compared to other more
+dynamic components. To cache and expire different parts of the page separately you can use Fragment Caching.
 
 Fragment Caching allows a fragment of view logic to be wrapped in a cache block and served out of the cache store when the next request comes in.
 
@@ -349,7 +350,7 @@ cache.
 
 ### Shared Partial Caching
 
-It is possible to share partials and associated caching between files with different MIME types. For example shared partial caching allows template writers to share a partial between HTML and JavaScript files. When templates are collected in the template resolver file paths they only include the template language extension and not the MIME type. Because of this templates can be used for multiple MIME types. Both HTML and JavaScript requests will respond to the following code:
+It is possible to share partials and associated caching between files with different [MIME types](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types). For example, shared partial caching allows template writers to share a partial between HTML and JavaScript files. When templates are collected in the template resolver file paths they only include the template language extension and not the MIME type. Because of this templates can be used for multiple MIME types. Both HTML and JavaScript requests will respond to the following code:
 
 ```ruby
 render(partial: "hotels/hotel", collection: @hotels, cached: true)
@@ -369,7 +370,7 @@ Will load a file named `hotels/hotel.html.erb` in any file MIME type, for exampl
 
 Conditional GETs are a feature of the HTTP specification that provide a way for web servers to tell browsers that the response to a GET request hasn't changed since the last request and can be safely pulled from the browser cache.
 
-They work by using the `HTTP_IF_NONE_MATCH` and `HTTP_IF_MODIFIED_SINCE` headers to pass back and forth both a unique content identifier and the timestamp of when the content was last changed. If the browser makes a request where the content identifier (ETag) or last modified since timestamp matches the server's version then the server only needs to send back an empty response with a not modified status.
+They work by using the `HTTP_IF_NONE_MATCH` and `HTTP_IF_MODIFIED_SINCE` headers to pass back and forth both a unique content identifier and the timestamp of when the content was last changed. If the browser makes a request where the content identifier ([ETag](#strong-vs-weak-etags)) or last modified since timestamp matches the server's version then the server only needs to send back an empty response with a not modified status.
 
 It is the server's (i.e. our) responsibility to look for a last modified timestamp and the if-none-match header and determine whether or not to send back the full response. With conditional-get support in Rails this is a pretty easy task:
 
@@ -890,13 +891,17 @@ custom class.
 config.cache_store = MyCacheStore.new
 ```
 
-
 ### Strong v/s Weak ETags
 
+An ETag is a token (often a hash) that uniquely represents a particular version
+of a response body. If the server sends an ETag, the browser can later send it
+back to ask “is this still the same?” without fetching the full response.
+
 Rails generates weak ETags by default. Weak ETags allow semantically equivalent
-responses to have the same ETags, even if their bodies do not match exactly.
-This is useful when we don't want the page to be regenerated for minor changes in
-response body.
+responses to share the same ETag even if their response bodies do not match
+byte-for-byte. This can be useful when minor representation differences occur
+that do not change the meaning of the response, such as insignificant whitespace
+or formatting changes.
 
 Weak ETags have a leading `W/` to differentiate them from strong ETags.
 
@@ -905,8 +910,8 @@ W/"618bbc92e2d35ea1945008b42799b0e7" → Weak ETag
 "618bbc92e2d35ea1945008b42799b0e7" → Strong ETag
 ```
 
-Unlike weak ETag, strong ETag implies that response should be exactly the same
-and byte by byte identical. Useful when doing Range requests within a
+Unlike weak ETags, a strong ETag implies that response should be exactly the same
+and byte by byte identical. It's useful when doing Range requests within a
 large video or PDF file. Some CDNs support only strong ETags, like Akamai.
 If you absolutely need to generate a strong ETag, it can be done as follows.
 

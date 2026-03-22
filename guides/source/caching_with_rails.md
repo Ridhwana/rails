@@ -430,7 +430,7 @@ This is useful when a browser or intermediary cache may already have a recent
 copy of a response and you want to avoid sending the full response body again.
 
 They work with the `If-None-Match` and `If-Modified-Since` request headers,
-using an [ETag](#strong-v-s-weak-etags) and/or a last-modified timestamp to
+using an [ETag](#strong-vs-weak-etags) and/or a last-modified timestamp to
 check whether the response is still fresh. If the browser's copy matches the
 server's version, the server can return `304 Not Modified` with no response
 body.
@@ -493,6 +493,45 @@ When both `last_modified` and `etag` are set, the behavior depends on
 `config.action_dispatch.strict_freshness`. If it is `true`, only the `etag` is
 considered, as specified by RFC 7232 section 6. If it is `false`, both headers
 are checked and the response is considered fresh only if they both match.
+
+#### Strong vs. Weak ETags
+
+An ETag is a token (often a hash) that uniquely represents a particular version
+of a response body. If the server sends an ETag, the browser can later send it
+back to ask "is this still the same?" without fetching the full response.
+
+Rails generates weak ETags by default. Weak ETags allow semantically equivalent
+responses to share the same ETag even if their response bodies do not match
+byte-for-byte. This can be useful when minor representation differences occur
+that do not change the meaning of the response, such as insignificant whitespace
+or formatting changes.
+
+Weak ETags have a leading `W/` to differentiate them from strong ETags.
+
+```
+W/"618bbc92e2d35ea1945008b42799b0e7" -> Weak ETag
+"618bbc92e2d35ea1945008b42799b0e7" -> Strong ETag
+```
+
+Unlike weak ETags, a strong ETag means the response body must match exactly,
+byte for byte. This is useful for `Range` requests on large files such as
+videos or PDFs. Some CDNs also require strong ETags. If you need to generate a
+strong ETag, you can do so as follows:
+
+```ruby
+class ProductsController < ApplicationController
+  def show
+    @product = Product.find(params[:id])
+    fresh_when last_modified: @product.published_at.utc, strong_etag: @product
+  end
+end
+```
+
+You can also set the strong ETag directly on the response.
+
+```ruby
+response.strong_etag = response.body # => "618bbc92e2d35ea1945008b42799b0e7"
+```
 
 Sometimes you want to cache a response that effectively never changes, such as a
 static page. In that case, you can use the `http_cache_forever` helper so
@@ -976,45 +1015,6 @@ custom class.
 
 ```ruby
 config.cache_store = MyCacheStore.new
-```
-
-### Strong v/s Weak ETags
-
-An ETag is a token (often a hash) that uniquely represents a particular version
-of a response body. If the server sends an ETag, the browser can later send it
-back to ask “is this still the same?” without fetching the full response.
-
-Rails generates weak ETags by default. Weak ETags allow semantically equivalent
-responses to share the same ETag even if their response bodies do not match
-byte-for-byte. This can be useful when minor representation differences occur
-that do not change the meaning of the response, such as insignificant whitespace
-or formatting changes.
-
-Weak ETags have a leading `W/` to differentiate them from strong ETags.
-
-```
-W/"618bbc92e2d35ea1945008b42799b0e7" → Weak ETag
-"618bbc92e2d35ea1945008b42799b0e7" → Strong ETag
-```
-
-Unlike weak ETags, a strong ETag means the response body must match exactly,
-byte for byte. This is useful for `Range` requests on large files such as
-videos or PDFs. Some CDNs also require strong ETags. If you need to generate a
-strong ETag, you can do so as follows:
-
-```ruby
-class ProductsController < ApplicationController
-  def show
-    @product = Product.find(params[:id])
-    fresh_when last_modified: @product.published_at.utc, strong_etag: @product
-  end
-end
-```
-
-You can also set the strong ETag directly on the response.
-
-```ruby
-response.strong_etag = response.body # => "618bbc92e2d35ea1945008b42799b0e7"
 ```
 
 Advanced Caching Patterns

@@ -430,7 +430,7 @@ This is useful when a browser or intermediary cache may already have a recent
 copy of a response and you want to avoid sending the full response body again.
 
 They work with the `If-None-Match` and `If-Modified-Since` request headers,
-using an [ETag](#strong-vs-weak-etags) and/or a last-modified timestamp to
+using an [ETag](#strong-v-s-weak-etags) and/or a last-modified timestamp to
 check whether the response is still fresh. If the browser's copy matches the
 server's version, the server can return `304 Not Modified` with no response
 body.
@@ -1016,3 +1016,63 @@ You can also set the strong ETag directly on the response.
 ```ruby
 response.strong_etag = response.body # => "618bbc92e2d35ea1945008b42799b0e7"
 ```
+
+Advanced Caching Patterns
+-------------------------
+
+### Caching in Background Jobs and Other Non-Request Contexts
+
+Caching is not limited to controller actions. You can also use `Rails.cache` in
+background jobs, service objects, scripts, and other application code.
+
+Low-level caching works the same way in these contexts as it does in a request:
+
+```ruby
+class ReportJob < ApplicationJob
+  def perform(account)
+    Rails.cache.fetch([account, "daily-report"], expires_in: 1.hour) do
+      account.generate_daily_report
+    end
+  end
+end
+```
+
+Some caching behavior, however, depends on being inside a Rails execution
+context. Features such as the Active Record query cache and other per-execution
+state are set up automatically for normal Rails-managed requests and jobs.
+
+If you run application code yourself from a custom thread or long-running
+script, wrap it with `Rails.application.executor.wrap` so Rails can manage that
+state correctly:
+
+```ruby
+Rails.application.executor.wrap do
+  Rails.cache.fetch("stats", expires_in: 5.minutes) { expensive_calculation }
+end
+```
+
+For more on the Executor and non-request code execution, see [Threading and Code
+Execution in Rails](threading_and_code_execution.html).
+
+### Local Cache
+
+Some cache stores support a local cache layer. This keeps recently read values
+in memory for the duration of a request or block, so repeated reads for the same
+key can be served without going back to the underlying cache store.
+
+This is especially useful with remote cache stores such as Redis or Memcached,
+where avoiding repeated network round trips can improve performance.
+
+In a normal Rails request, the local cache is managed for you by middleware. You
+can also use it manually around a block:
+
+```ruby
+Rails.cache.with_local_cache do
+  Rails.cache.read("hot-key")
+  Rails.cache.read("hot-key")
+end
+```
+
+The local cache is temporary and scoped to the current execution. It does not
+replace your main cache store, and values written there are not shared across
+requests, jobs, or processes.

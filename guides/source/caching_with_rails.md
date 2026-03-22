@@ -9,11 +9,8 @@ After reading this guide, you will know:
 
 * What caching is.
 * The types of caching strategies.
-* How to manage the caching dependencies.
-* Solid Cache - a database-backed Active Support cache store.
-* Other cache stores.
-* Cache keys.
-* Conditional GET support.
+* How to use Solid Cache.
+* Other available cache stores.
 
 --------------------------------------------------------------------------------
 
@@ -42,50 +39,42 @@ Types of Caching
 
 This is an introduction to some of the common types of caching.
 
-By default, Action Controller caching is only enabled in your production environment. You can play
-around with caching locally by running `bin/rails dev:cache`, or by setting
-[`config.action_controller.perform_caching`][] to `true` in `config/environments/development.rb`.
+By default, [Action Controller
+Caching](https://api.rubyonrails.org/classes/ActionController/Caching.html) is
+enabled only in the production environment. However, you can play around with
+caching locally by running `bin/rails dev:cache`, or by setting
+[`config.action_controller.perform_caching`][] to `true` in
+`config/environments/development.rb`.
 
-NOTE: Changing the value of `config.action_controller.perform_caching` will
-only have an effect on the caching provided by Action Controller.
-For instance, it will not impact low-level caching, that we address
-[below](#low-level-caching-using-rails-cache).
+NOTE: Changing the value of `config.action_controller.perform_caching` only
+affects caching provided by Action Controller. It will not impact [low-level
+caching](#low-level-caching-using-rails-cache).
 
 [`config.action_controller.perform_caching`]: configuring.html#config-action-controller-perform-caching
 
 ### Low-Level Caching using `Rails.cache`
 
-Sometimes you need to cache a particular value or query result instead of caching view fragments. Rails' caching mechanism works great for storing any serializable information.
+Rails' low-level caching mechanism, accessed via `Rails.cache`, can store
+serializable information, such as API responses, computed values, or expensive
+query results, allowing you to avoid redundant computations and improve
+performance across your application, without caching the entire view fragment.
 
-An efficient way to implement low-level caching is using the `Rails.cache.fetch` method. This method handles both _reading from_ and _writing to_ the cache. When called with a single argument, it fetches and returns the cached value for the given key. If a block is passed, the block is executed only on a cache miss. The block's return value is written to the cache under the given cache key and returned. In case of cache hit, the cached value is returned directly without executing the block.
-
-The keys used in a cache can be any object that responds to either `cache_key` or
-`to_param`. You can implement the `cache_key` method on your classes if you need
-to generate custom keys. Active Record will generate keys based on the class name
-and record id.
-
-You can use Hashes and Arrays of values as cache keys.
-
-```ruby
-# This is a valid cache key
-Rails.cache.read(site: "mysite", owners: [owner_1, owner_2])
-```
-
-Consider the following example. An application has a `Product` model with an instance method that looks up the product's price on a competing website. The data returned by this method would be perfect for low-level caching:
+`Rails.cache.fetch` handles both _reading from_ and _writing to_ the cache. When
+called with a single argument, it fetches and returns the cached value for the
+given key. If a block is passed, the block is executed only on a cache miss. The
+block's return value is written to the cache under the given cache key and
+returned. In case of cache hit, the cached value is returned directly without
+executing the block. For example:
 
 ```ruby
-class Product < ApplicationRecord
-  def competing_price
-    Rails.cache.fetch("#{cache_key_with_version}/competing_price", expires_in: 12.hours) do
-      Competitor::API.find_price(id)
-    end
-  end
-end
+# Fetch a value with a block to set a default if it doesn’t exist
+welcome_message = Rails.cache.fetch("welcome_message") { "Welcome to Rails!" }
+puts welcome_message # Output: Welcome to Rails!
 ```
 
-NOTE: Notice that in this example we used the `cache_key_with_version` method, so the resulting cache key will be something like `products/233-20140225082222765838000/competing_price`. `cache_key_with_version` generates a string based on the model's class name, `id`, and `updated_at` attributes. This is a common convention and has the benefit of invalidating the cache whenever the product is updated. In general, when you use low-level caching, you need to generate a cache key.
-
-Below are some more examples of how to use low-level caching:
+Alternatively, you can specify whether you want to read or write from the cache
+using `Rails.cache.read` and `Rails.cache.write`. You can delete a key using
+`Rails.cache.delete`.
 
 ```ruby
 # Store a value in the cache
@@ -103,6 +92,40 @@ puts welcome_message # Output: Welcome to Rails!
 Rails.cache.delete("greeting")
 ```
 
+You can use Hashes and Arrays of values as cache keys.
+
+```ruby
+# This is a valid cache key
+Rails.cache.read(site: "mysite", owners: [owner_1, owner_2])
+```
+
+The keys used in a cache can be any object that responds to either `cache_key`
+or `to_param`. You can implement the `cache_key` method on your classes if you
+need to generate custom keys. Active Record will generate keys based on the
+class name and record id.
+
+Consider the following example. An application has a `Product` model with an
+instance method that looks up the product's price on a competitors website. The
+data returned by this method would be a good fit for low-level caching:
+
+```ruby
+class Product < ApplicationRecord
+  def competing_price
+    Rails.cache.fetch("#{cache_key_with_version}/competing_price", expires_in: 12.hours) do
+      Competitor::API.find_price(id)
+    end
+  end
+end
+```
+
+Notice that in the above example we used the `cache_key_with_version` method, so
+the resulting cache key will be something like
+`products/233-20140225082222765838000/competing_price`. `cache_key_with_version`
+generates a string based on the model's class name, `id`, and `updated_at`
+attributes i.e. `<model class name>/<resource id>-<resource updated_at>`. This is a
+common convention and has the benefit of invalidating the cache whenever the
+product is updated.
+
 INFO: The keys you use on `Rails.cache` will not be the same as those actually
 used with the storage engine. They may be modified with a namespace or altered
 to fit technology backend constraints. This means, for instance, that you can't
@@ -113,7 +136,7 @@ rules.
 
 #### Avoid Caching Instances of Active Record Objects
 
-Consider this example, which stores a list of Active Record objects representing superusers in the cache:
+You should __avoid__ storing a list of Active Record objects in the cache:
 
 ```ruby
 # super_admins is an expensive SQL query, so don't run it too often
@@ -122,14 +145,14 @@ Rails.cache.fetch("super_admin_users", expires_in: 12.hours) do
 end
 ```
 
-You should __avoid__ this pattern. Why? Because the instance could change. In production, attributes
-on it could differ, or the record could be deleted. And in development, it works unreliably with
-cache stores that reload code when you make changes.
+In the example above the instance of the `User`, representing `superusers`,
+could change, and the attributes on it could differ, or the record could be
+deleted. In development, this also works unreliably with cache stores that
+reload code when you make changes.
 
-Instead, cache the ID or some other primitive data type. For example:
+Instead, cache the ID of teh resource or some other primitive data type. For example:
 
 ```ruby
-# super_admins is an expensive SQL query, so don't run it too often
 ids = Rails.cache.fetch("super_admin_user_ids", expires_in: 12.hours) do
   User.super_admins.pluck(:id)
 end
@@ -141,12 +164,12 @@ User.where(id: ids).to_a
 Dynamic web applications build pages with a variety of components not all of
 which have the same caching characteristics. For example, a static component,
 such as a site logo, will have a longer caching duration compared to other more
-dynamic components. To cache and expire different parts of the page separately you can use Fragment Caching.
+dynamic components. To cache and expire different parts of the page separately
+you can use Fragment Caching.
 
 Fragment Caching allows a fragment of view logic to be wrapped in a cache block and served out of the cache store when the next request comes in.
 
-For example, if you wanted to cache each product on a page, you could use this
-code:
+For example, if you wanted to cache each product on a page, you could do the following:
 
 ```html+erb
 <% @products.each do |product| %>
@@ -157,7 +180,7 @@ code:
 ```
 
 When your application receives its first request to this page, Rails will write
-a new cache entry with a unique key. A key looks something like this:
+a new cache entry with a unique key. The key looks something like this:
 
 ```
 views/products/index:bea67108094918eeba42cd4a6e786901/products/1
@@ -172,7 +195,7 @@ A cache version, derived from the product record, is stored in the cache entry.
 When the product is touched, the cache version changes, and any cached fragments
 that contain the previous version are ignored.
 
-TIP: Cache stores like Memcached will automatically delete old cache files.
+TIP: Cache stores like [Memcached](https://memcached.org) will automatically delete old cache files.
 
 If you want to cache a fragment under certain conditions, you can use
 `cache_if` or `cache_unless`:
@@ -185,9 +208,10 @@ If you want to cache a fragment under certain conditions, you can use
 
 #### Collection Caching
 
-The `render` helper can also cache individual templates rendered for a collection.
-It can even one up the previous example with `each` by reading all cache
-templates at once instead of one by one. This is done by passing `cached: true` when rendering the collection:
+The `render` helper can also cache individual templates rendered for a
+collection. Instead of using an `each` loop (like in previous example) to read
+the templates one by one, you can instead read all cache templates at once. This
+is done by passing `cached: true` when rendering the collection:
 
 ```html+erb
 <%= render partial: 'products/product', collection: @products, cached: true %>
@@ -207,7 +231,7 @@ do not overwrite each other:
            cached: ->(product) { [I18n.locale, product] } %>
 ```
 
-Additionally, you can configure `cached` with an options hash that takes `expires_in` and `key` so you can explicitly set the expiration.
+Additionally, you can configure `cached` with an options hash that takes `expires_in` and `key` so you can explicitly set the expiration of the cached templates.
 
 ```html+erb
 <%= render partial: 'products/product',
@@ -221,10 +245,10 @@ When using fragment caching, you need to define the template dependencies so Rai
 
 ##### Implicit Dependencies
 
-Most template dependencies can be derived from calls to `render` in the template
-itself. Here are some examples of render calls the
+Rails can infer many template dependencies directly from `render` calls in the
+template. For example, the
 [`ActionView::Digestor`](https://api.rubyonrails.org/classes/ActionView/Digestor.html)
-knows how to decode:
+can understand calls like these:
 
 ```ruby
 render partial: "comments/comment", collection: commentable.comments
@@ -238,14 +262,14 @@ render(topics)         # translates to render("topics/topic")
 render(message.topics) # translates to render("topics/topic")
 ```
 
-On the other hand, some calls need to be changed to make caching work properly.
-For instance, if you're passing a custom collection, you'll need to change:
+Some render calls need more information before Rails can infer the template
+dependency. For example, when you pass a custom collection like this:
 
 ```ruby
 render @project.documents.where(published: true)
 ```
 
-to:
+You'll need to rewrite it to name the partial and collection explicitly:
 
 ```ruby
 render partial: "documents/document", collection: @project.documents.where(published: true)
@@ -253,32 +277,33 @@ render partial: "documents/document", collection: @project.documents.where(publi
 
 ##### Explicit Dependencies
 
-Sometimes you'll have template dependencies that can't be derived at all. This
-is typically the case when rendering happens in helpers. Here's an example:
+Sometimes Rails cannot see a template dependency on its own. This usually
+happens when the `render` call is hidden inside a helper method.
 
 ```html+erb
 <%= render_sortable_todolists @project.todolists %>
 ```
 
-You'll need to use a special comment format to call those out:
+In that case, declare the dependency explicitly with a special comment:
 
 ```html+erb
 <%# Template Dependency: todolists/todolist %>
 <%= render_sortable_todolists @project.todolists %>
 ```
 
-In some cases, like a single table inheritance setup, you might have a bunch of
-explicit dependencies. Instead of writing every template out, you can use a
-wildcard to match any template in a directory:
+In some cases, such as a [single table
+inheritance](association_basics.html#single-table-inheritance) setup, a helper
+may render different partials from the same directory. Instead of listing each
+template individually, you can use a wildcard to match the whole directory:
 
 ```html+erb
 <%# Template Dependency: events/* %>
 <%= render_categorizable_events @person.events %>
 ```
 
-As for collection caching, if the partial template doesn't start with a clean
-cache call, you can still benefit from collection caching by adding a special
-comment format anywhere in the template, like:
+There is also a special comment for collection caching when the cache call is
+hidden inside a helper. If the partial template does not start with a clean
+cache call, you can add this comment anywhere in the template:
 
 ```html+erb
 <%# Template Collection: notification %>
@@ -289,10 +314,12 @@ comment format anywhere in the template, like:
 
 ###### External Dependencies
 
-If you use a helper method, for example, inside a cached block and you then update
-that helper, you'll have to bump the cache as well. It doesn't really matter how
-you do it, but the MD5 of the template file must change. One recommendation is to
-simply be explicit in a comment, like:
+Changes outside the template file can also affect the cached output. For
+example, if a cached block calls a helper method, updating that helper will not
+change the template digest automatically.
+
+When that happens, update the template in some way so its digest changes too.
+One simple approach is to add or update a comment like this:
 
 ```html+erb
 <%# Helper Dependency Updated: Jul 28, 2015 at 7pm %>

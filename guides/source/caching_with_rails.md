@@ -92,6 +92,11 @@ puts welcome_message # Output: Welcome to Rails!
 Rails.cache.delete("greeting")
 ```
 
+If you need to remove everything from the current cache store, you can call
+`Rails.cache.clear`. This is most useful in development or when you explicitly
+want to reset the cache. In production, clearing the entire cache can cause a
+sudden increase in work while entries are rebuilt.
+
 You can use Hashes and Arrays of values as cache keys.
 
 ```ruby

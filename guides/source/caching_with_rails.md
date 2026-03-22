@@ -426,6 +426,9 @@ template with a different MIME type, such as a JavaScript template.
 Conditional GETs let a server tell the browser that a response has not changed
 since the last request, so the browser can reuse its cached copy.
 
+This is useful when a browser or intermediary cache may already have a recent
+copy of a response and you want to avoid sending the full response body again.
+
 They work with the `If-None-Match` and `If-Modified-Since` request headers,
 using an [ETag](#strong-vs-weak-etags) and/or a last-modified timestamp to
 check whether the response is still fresh. If the browser's copy matches the
@@ -558,6 +561,9 @@ difference is minimal for most applications. SSDs compensate for this by not
 needing to be invalidated as frequently, since they can store much more data. As
 a result, there are fewer cache misses on average, leading to fast response
 times.
+
+Solid Cache is a good fit when you want a larger, more durable cache without
+running a separate cache service such as Redis or Memcached.
 
 Solid Cache uses a FIFO (First In, First Out) caching strategy, where the first
 item added to the cache is the first one to be removed when the cache reaches

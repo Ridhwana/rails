@@ -9,8 +9,8 @@ After reading this guide, you will know:
 
 * What caching is.
 * The types of caching strategies.
-* How to use Solid Cache.
-* Other available cache stores.
+* How to manage cache dependencies.
+* How to configure Solid Cache and other cache stores.
 
 --------------------------------------------------------------------------------
 
@@ -54,10 +54,10 @@ caching](#low-level-caching-using-rails-cache).
 
 ### Low-Level Caching using `Rails.cache`
 
-Rails' low-level caching mechanism, accessed via `Rails.cache`, can store
-serializable information, such as API responses, computed values, or expensive
-query results, allowing you to avoid redundant computations and improve
-performance across your application, without caching the entire view fragment.
+Rails' low-level caching mechanism, accessed with `Rails.cache`, stores
+serializable values such as API responses, computed values, and expensive query
+results. This lets you cache individual pieces of data without caching an
+entire view.
 
 `Rails.cache.fetch` handles both _reading from_ and _writing to_ the cache. When
 called with a single argument, it fetches and returns the cached value for the
@@ -99,13 +99,12 @@ You can use Hashes and Arrays of values as cache keys.
 Rails.cache.read(site: "mysite", owners: [owner_1, owner_2])
 ```
 
-The keys used in a cache can be any object that responds to either `cache_key`
-or `to_param`. You can implement the `cache_key` method on your classes if you
-need to generate custom keys. Active Record will generate keys based on the
-class name and record id.
+Cache keys can be any object that responds to `cache_key` or `to_param`. If you
+need custom keys, you can implement `cache_key` on your own classes. Active
+Record models already generate cache keys based on the model name and record ID.
 
 Consider the following example. An application has a `Product` model with an
-instance method that looks up the product's price on a competitors website. The
+instance method that looks up the product's price on a competitor's website. The
 data returned by this method would be a good fit for low-level caching:
 
 ```ruby
@@ -118,13 +117,14 @@ class Product < ApplicationRecord
 end
 ```
 
-Notice that in the above example we used the `cache_key_with_version` method, so
+Notice that in the example above we used the `cache_key_with_version` method, so
 the resulting cache key will be something like
 `products/233-20140225082222765838000/competing_price`. `cache_key_with_version`
 generates a string based on the model's class name, `id`, and `updated_at`
-attributes i.e. `<model class name>/<resource id>-<resource updated_at>`. This is a
-common convention and has the benefit of invalidating the cache whenever the
-product is updated.
+attributes, in the form
+`<model class name>/<resource id>-<resource updated_at>`. This is a common
+convention and has the benefit of invalidating the cache whenever the product
+is updated.
 
 INFO: The keys you use on `Rails.cache` will not be the same as those actually
 used with the storage engine. They may be modified with a namespace or altered
@@ -150,7 +150,7 @@ could change, and the attributes on it could differ, or the record could be
 deleted. In development, this also works unreliably with cache stores that
 reload code when you make changes.
 
-Instead, cache the ID of teh resource or some other primitive data type. For example:
+Instead, cache the ID of the resource or some other primitive data type. For example:
 
 ```ruby
 ids = Rails.cache.fetch("super_admin_user_ids", expires_in: 12.hours) do
@@ -187,15 +187,16 @@ views/products/index:bea67108094918eeba42cd4a6e786901/products/1
 ```
 
 The string of characters in the middle is a template tree digest. It is a hash
-digest computed based on the contents of the view fragment you are caching. If
-you change the view fragment (e.g., the HTML changes), the digest will change,
-expiring the existing file.
+computed from the contents of the view fragment you are caching. If you change
+that fragment, such as by updating the HTML, the digest changes and Rails will
+treat it as a different cache entry.
 
 A cache version, derived from the product record, is stored in the cache entry.
 When the product is touched, the cache version changes, and any cached fragments
 that contain the previous version are ignored.
 
-TIP: Cache stores like [Memcached](https://memcached.org) will automatically delete old cache files.
+TIP: Cache stores like [Memcached](https://memcached.org) automatically evict
+old cache entries when they need to reclaim space.
 
 If you want to cache a fragment under certain conditions, you can use
 `cache_if` or `cache_unless`:
@@ -208,18 +209,18 @@ If you want to cache a fragment under certain conditions, you can use
 
 #### Collection Caching
 
-The `render` helper can also cache individual templates rendered for a
-collection. Instead of using an `each` loop (like in previous example) to read
-the templates one by one, you can instead read all cache templates at once. This
-is done by passing `cached: true` when rendering the collection:
+The `render` helper can also cache each template in a collection. Instead of
+checking the cache one item at a time in an `each` loop, Rails can fetch the
+cached entries for the whole collection at once. You enable this by passing
+`cached: true` when rendering the collection:
 
 ```html+erb
 <%= render partial: 'products/product', collection: @products, cached: true %>
 ```
 
-All cached templates from previous renders will be fetched at once with much
-greater speed. Additionally, the templates that haven't yet been cached will be
-written to cache and multi fetched on the next render.
+Cached entries from previous renders will be read in a single multi-fetch.
+Templates that are not yet cached will be rendered and written to the cache, so
+they can be fetched the same way on the next render.
 
 The cache key can be configured. In the example below, it is prefixed with the
 current locale to ensure that different localizations of the product page
@@ -231,7 +232,8 @@ do not overwrite each other:
            cached: ->(product) { [I18n.locale, product] } %>
 ```
 
-Additionally, you can configure `cached` with an options hash that takes `expires_in` and `key` so you can explicitly set the expiration of the cached templates.
+You can also configure `cached` with an options hash that accepts `expires_in`
+and `key`, so you can control the cache key and expiration explicitly.
 
 ```html+erb
 <%= render partial: 'products/product',
@@ -241,7 +243,10 @@ Additionally, you can configure `cached` with an options hash that takes `expire
 
 #### Managing Dependencies
 
-When using fragment caching, you need to define the template dependencies so Rails can correctly invalidate cached fragments. Rails is clever enough to handle common cases, but when you render templates from helpers or use non-standard rendering calls, you may need to declare dependencies explicitly.
+When using fragment caching, you need to define template dependencies so Rails
+can invalidate cached fragments correctly. Rails can infer many common cases,
+but when rendering happens in helpers or through less direct `render` calls, you
+may need to declare dependencies explicitly.
 
 ##### Implicit Dependencies
 
@@ -335,9 +340,9 @@ The advantage of Russian doll caching is that if a single product is updated,
 all the other inner fragments can be reused when regenerating the outer
 fragment.
 
-As explained in the previous section, a cached file will expire if the value of
-`updated_at` changes for a record on which the cached file directly depends.
-However, this will not expire any cache the fragment is nested within.
+As explained in the previous section, a cached fragment will become stale if the
+`updated_at` value changes for a record it directly depends on. However, that
+does not automatically expire any outer fragment that contains it.
 
 For example, take the following view:
 
@@ -355,10 +360,9 @@ Which in turn renders this view:
 <% end %>
 ```
 
-If any attribute of game is changed, the `updated_at` value will be set to the
-current time, thereby expiring the cache. However, because `updated_at`
-will not be changed for the product object, that cache will not be expired and
-your app will serve stale data. To fix this, we tie the models together with
+If a `game` changes, its `updated_at` value changes too, which expires that
+fragment. But the `product` record's `updated_at` does not change automatically,
+so the outer fragment can still serve stale data. To fix this, tie the models together with
 the `touch` method:
 
 ```ruby
@@ -377,29 +381,41 @@ cache.
 
 ### Shared Partial Caching
 
-It is possible to share partials and associated caching between files with different [MIME types](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types). For example, shared partial caching allows template writers to share a partial between HTML and JavaScript files. When templates are collected in the template resolver file paths they only include the template language extension and not the MIME type. Because of this templates can be used for multiple MIME types. Both HTML and JavaScript requests will respond to the following code:
+You can share partials, and their cached output, across templates with
+different [MIME types](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types).
+For example, the same partial can be reused from both HTML and JavaScript
+templates. When Rails resolves `render partial:`, it can use a partial without
+an explicit format in more than one response format. Both HTML and JavaScript
+requests can use the following code:
 
 ```ruby
 render(partial: "hotels/hotel", collection: @hotels, cached: true)
 ```
 
-Will load a file named `hotels/hotel.erb`.
+This will load a file named `hotels/_hotel.erb`.
 
-Another option is to include the `formats` attribute to the partial to render.
+Another option is to specify the `formats` option explicitly.
 
 ```ruby
 render(partial: "hotels/hotel", collection: @hotels, formats: :html, cached: true)
 ```
 
-Will load a file named `hotels/hotel.html.erb` in any file MIME type, for example you could include this partial in a JavaScript file.
+This will load `hotels/_hotel.html.erb` even when it is rendered from a
+template with a different MIME type, such as a JavaScript template.
 
 ### Conditional GETs
 
-Conditional GETs are a feature of the HTTP specification that provide a way for web servers to tell browsers that the response to a GET request hasn't changed since the last request and can be safely pulled from the browser cache.
+Conditional GETs let a server tell the browser that a response has not changed
+since the last request, so the browser can reuse its cached copy.
 
-They work by using the `HTTP_IF_NONE_MATCH` and `HTTP_IF_MODIFIED_SINCE` headers to pass back and forth both a unique content identifier and the timestamp of when the content was last changed. If the browser makes a request where the content identifier ([ETag](#strong-vs-weak-etags)) or last modified since timestamp matches the server's version then the server only needs to send back an empty response with a not modified status.
+They work with the `If-None-Match` and `If-Modified-Since` request headers,
+using an [ETag](#strong-vs-weak-etags) and/or a last-modified timestamp to
+check whether the response is still fresh. If the browser's copy matches the
+server's version, the server can return `304 Not Modified` with no response
+body.
 
-It is the server's (i.e. our) responsibility to look for a last modified timestamp and the if-none-match header and determine whether or not to send back the full response. With conditional-get support in Rails this is a pretty easy task:
+It is the server's responsibility to evaluate those headers and decide whether
+to send a full response. Rails makes this straightforward:
 
 ```ruby
 class ProductsController < ApplicationController
@@ -452,23 +468,24 @@ class ProductsController < ApplicationController
 end
 ```
 
-When both `last_modified` and `etag` are set, behavior varies depending on the value of `config.action_dispatch.strict_freshness`.
-If set to `true`, only the `etag` is considered as specified by RFC 7232 section 6.
-If set to `false`, both are considered and the cache is considered fresh if both conditions are satisfied, as was the historical Rails behavior.
+When both `last_modified` and `etag` are set, the behavior depends on
+`config.action_dispatch.strict_freshness`. If it is `true`, only the `etag` is
+considered, as specified by RFC 7232 section 6. If it is `false`, both headers
+are checked and the response is considered fresh only if they both match.
 
-Sometimes we want to cache response, for example a static page, that never gets
-expired. To achieve this, we can use `http_cache_forever` helper and by doing
-so browser and proxies will cache it indefinitely.
+Sometimes you want to cache a response that effectively never changes, such as a
+static page. In that case, you can use the `http_cache_forever` helper so
+browsers and proxies cache it for a very long time.
 
 By default cached responses will be private, cached only on the user's web
 browser. To allow proxies to cache the response, set `public: true` to indicate
 that they can serve the cached response to all users.
 
-Using this helper, `last_modified` header is set to `Time.new(2011, 1, 1).utc`
-and `expires` header is set to a 100 years.
+This helper sets `last_modified` to `Time.new(2011, 1, 1).utc` and applies a
+very long `Cache-Control` lifetime.
 
-WARNING: Use this method carefully as browser/proxy won't be able to invalidate
-the cached response unless browser cache is forcefully cleared.
+WARNING: Use this method carefully. Browsers and proxies will keep reusing the
+response until it changes at a different URL or the cache is cleared.
 
 ```ruby
 class HomeController < ApplicationController
@@ -482,10 +499,10 @@ end
 
 ### SQL Caching
 
-Query caching is a Rails feature that caches the result set returned by each
-query. If Rails encounters the same query again for that request, it will use
-the cached result set as opposed to running the query against the database
-again.
+Query caching is an Active Record feature that caches the result set returned by
+each query. If the same query runs again during the same request or execution
+context, Active Record can reuse the stored result instead of asking the
+database again.
 
 For example:
 
@@ -503,10 +520,12 @@ class ProductsController < ApplicationController
 end
 ```
 
-The second time the same query is run against the database, it's not actually going to hit the database. The first time the result is returned from the query it is stored in the query cache (in memory) and the second time it's pulled from memory. However, each retrieval still instantiates new instances of the queried objects.
+The second time the same query runs, it does not hit the database. Active
+Record reads the cached result from memory instead. However, each retrieval
+still instantiates new model objects from that cached result.
 
 NOTE: Query caches are created at the start of an action and destroyed at the
-end of that action and thus persist only for the duration of the action. If
+end of that action, so they persist only for the duration of the request. If
 you'd like to store query results in a more persistent fashion, you can with
 low-level caching.
 
@@ -530,8 +549,8 @@ better optimizing for frequently used data. However, Solid Cache compensates for
 the lower efficiency of FIFO by allowing the cache to live longer, reducing the
 frequency of invalidations.
 
-Solid Cache is enabled by default from Rails version 8.0 and onward. However, if
-you'd prefer not to utilize it, you can skip Solid Cache:
+New Rails applications generated with Rails 8.0 and later include Solid Cache
+by default. However, if you'd prefer not to use it, you can skip Solid Cache:
 
 ```bash
 rails new app_name --skip-solid
@@ -580,25 +599,24 @@ production:
 ```
 
 If `database` or [`databases`](#sharding-the-cache) is not specified in the
-cache configuration, Solid Cache will use the ActiveRecord::Base connection
-pool. This means that cache reads and writes will be part of any wrapping
-database transaction.
+cache configuration, Solid Cache uses the `ActiveRecord::Base` connection pool.
+That means cache reads and writes participate in any surrounding database
+transaction.
 
-In production, the cache store is configured to use the Solid Cache store by
-default:
+To use Solid Cache as your cache store, configure the environment accordingly:
 
-```yaml
+```ruby
   # config/environments/production.rb
   config.cache_store = :solid_cache_store
 ```
 
 You can [access the cache by calling
-`Rails.cache`](#low-level-caching-using-rails-cache)
+`Rails.cache`](#low-level-caching-using-rails-cache).
 
 
 ### Customizing the Cache Store
 
-Solid Cache can be customized through the config/cache.yml file:
+Solid Cache can be customized through `config/cache.yml`:
 
 ```yaml
 default: &default
@@ -609,7 +627,7 @@ default: &default
     namespace: <%= Rails.env %>
 ```
 
-For the full list of keys for store_options see [Cache
+For the full list of keys under `store_options`, see [Cache
 configuration](https://github.com/rails/solid_cache#cache-configuration).
 
 Here, you can adjust the `max_age` and `max_size` options to control the age and
@@ -631,10 +649,10 @@ configuration](https://github.com/rails/solid_cache#cache-configuration) to
 
 ### Sharding the Cache
 
-If you need more scalability, Solid Cache supports sharding — splitting the
+If you need more scalability, Solid Cache supports sharding, splitting the
 cache across multiple databases. This spreads the load, making your cache even
 more powerful. To enable sharding, add multiple cache databases to your
-database.yml:
+`database.yml`:
 
 ```yaml
 # config/database.yml
@@ -674,9 +692,9 @@ Encryption](active_record_encryption.html).
 
 ### Caching in Development
 
-By default, caching is *enabled* in development mode with
-[`:memory_store`](#activesupport-cache-memorystore). This doesn't apply to
-Action Controller caching, which is disabled by default.
+By default, new Rails applications use
+[`:memory_store`](#activesupport-cache-memorystore) as the cache store in
+development. Action Controller caching is still disabled by default.
 
 To enable Action Controller caching Rails provides the `bin/rails dev:cache`
 command.
@@ -695,13 +713,21 @@ configuration in `config/environments/development.rb`:
 config.cache_store = :solid_cache_store
 ```
 
-and ensure the `cache` database is created and migrated:
+and make sure the `cache` database is configured, created, and migrated:
 
-```bash
+```yaml
 development:
-  <<: *default
-  database: cache
+  primary:
+    <<: *default
+    database: storage/development.sqlite3
+  cache:
+    <<: *default
+    database: storage/development_cache.sqlite3
+    migrations_paths: db/cache_migrate
 ```
+
+After configuring the database, run `bin/rails db:prepare` so the cache tables
+are created.
 
 TIP: To disable caching set `cache_store` to
 [`:null_store`](#activesupport-cache-nullstore)
@@ -722,7 +748,8 @@ arguments to the cache store's constructor:
 config.cache_store = :memory_store, { size: 64.megabytes }
 ```
 
-Alternatively, you can set `ActionController::Base.cache_store` outside of a configuration block.
+Alternatively, you can set `ActionController::Base.cache_store` outside a
+configuration block.
 
 You can access the cache by calling `Rails.cache`.
 
@@ -783,16 +810,19 @@ store is not appropriate for large application deployments. However, it can
 work well for small, low traffic sites with only a couple of server processes,
 as well as development and test environments.
 
-New Rails projects are configured to use this implementation in the development environment by default.
+New Rails applications use this cache store in development by default.
 
 NOTE: Since processes will not share cache data when using `:memory_store`,
-it will not be possible to manually read, write, or expire the cache via the Rails console.
+changes made in a Rails console affect only that console process, not any
+running server processes.
 
 [`ActiveSupport::Cache::MemoryStore`]: https://api.rubyonrails.org/classes/ActiveSupport/Cache/MemoryStore.html
 
 ### `ActiveSupport::Cache::FileStore`
 
-[`ActiveSupport::Cache::FileStore`][] uses the file system to store entries. The path to the directory where the store files will be stored must be specified when initializing the cache.
+[`ActiveSupport::Cache::FileStore`][] uses the file system to store entries. You
+must specify the path to the directory where the cache files will be stored when
+initializing the cache.
 
 ```ruby
 config.cache_store = :file_store, "/path/to/cache/directory"
@@ -811,7 +841,10 @@ periodically clear out old entries.
 
 ### `ActiveSupport::Cache::MemCacheStore`
 
-[`ActiveSupport::Cache::MemCacheStore`][] uses Danga's `memcached` server to provide a centralized cache for your application. Rails uses the bundled `dalli` gem by default. This is currently the most popular cache store for production websites. It can be used to provide a single, shared cache cluster with very high performance and redundancy.
+[`ActiveSupport::Cache::MemCacheStore`][] uses Danga's `memcached` server to
+provide a centralized cache for your application. Rails uses the bundled
+`dalli` gem by default. It can provide a single shared cache cluster with high
+performance and redundancy.
 
 When initializing the cache, you should specify the addresses for all memcached servers in your cluster, or ensure the `MEMCACHE_SERVERS` environment variable has been set appropriately.
 
@@ -837,8 +870,8 @@ The [`write`][ActiveSupport::Cache::MemCacheStore#write] (and `fetch`) method on
 [`ActiveSupport::Cache::RedisCacheStore`][] takes advantage of Redis support for automatic eviction
 when it reaches max memory, allowing it to behave much like a Memcached cache server.
 
-Deployment note: Redis doesn't expire keys by default, so take care to use a
-dedicated Redis cache server. Don't fill up your persistent-Redis server with
+Deployment note: Redis does not expire keys by default, so take care to use a
+dedicated Redis cache server. Don't fill up your persistent Redis server with
 volatile cache data! Read the
 [Redis cache server setup guide](https://redis.io/topics/lru-cache) in detail.
 
@@ -897,7 +930,10 @@ config.cache_store = :redis_cache_store, { url: cache_servers,
 
 ### `ActiveSupport::Cache::NullStore`
 
-[`ActiveSupport::Cache::NullStore`][] is scoped to each web request, and clears stored values at the end of a request. It is meant for use in development and test environments. It can be very useful when you have code that interacts directly with `Rails.cache` but caching interferes with seeing the results of code changes.
+[`ActiveSupport::Cache::NullStore`][] does not persist cached values across
+requests. It is meant for use in development and test environments. It can be
+very useful when you have code that interacts directly with `Rails.cache` but
+caching interferes with seeing the results of code changes.
 
 ```ruby
 config.cache_store = :null_store
@@ -937,10 +973,10 @@ W/"618bbc92e2d35ea1945008b42799b0e7" → Weak ETag
 "618bbc92e2d35ea1945008b42799b0e7" → Strong ETag
 ```
 
-Unlike weak ETags, a strong ETag implies that response should be exactly the same
-and byte by byte identical. It's useful when doing Range requests within a
-large video or PDF file. Some CDNs support only strong ETags, like Akamai.
-If you absolutely need to generate a strong ETag, it can be done as follows.
+Unlike weak ETags, a strong ETag means the response body must match exactly,
+byte for byte. This is useful for `Range` requests on large files such as
+videos or PDFs. Some CDNs also require strong ETags. If you need to generate a
+strong ETag, you can do so as follows:
 
 ```ruby
 class ProductsController < ApplicationController

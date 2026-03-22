@@ -71,6 +71,12 @@ reuse it. A cache miss means the value was not in the cache yet, so Rails had to
 generate it and store it. Cache misses are normal, especially when an entry
 expires, the cache is cleared, or a key is used for the first time.
 
+For more advanced use cases, `Rails.cache.fetch` also accepts options such as
+`race_condition_ttl`, which can help prevent a cache stampede by briefly
+reusing a recently expired entry while one process rebuilds it. The full set of
+options is documented in
+[`ActiveSupport::Cache::Store`](https://api.rubyonrails.org/classes/ActiveSupport/Cache/Store.html).
+
 For example:
 
 ```ruby

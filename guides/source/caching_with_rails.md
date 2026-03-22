@@ -64,7 +64,14 @@ called with a single argument, it fetches and returns the cached value for the
 given key. If a block is passed, the block is executed only on a cache miss. The
 block's return value is written to the cache under the given cache key and
 returned. In case of cache hit, the cached value is returned directly without
-executing the block. For example:
+executing the block.
+
+INFO: A cache hit means Rails found an existing value in the cache and could
+reuse it. A cache miss means the value was not in the cache yet, so Rails had to
+generate it and store it. Cache misses are normal, especially when an entry
+expires, the cache is cleared, or a key is used for the first time.
+
+For example:
 
 ```ruby
 # Fetch a value with a block to set a default if it doesn’t exist

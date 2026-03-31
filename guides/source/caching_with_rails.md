@@ -19,7 +19,7 @@ What is Caching?
 
 Caching means storing content generated during the request-response cycle and
 reusing it when responding to similar requests. It avoids doing an expensive
-operation more than once, think of it like saving the result of something
+operation more than  - think of it like saving the result of something
 expensive so you can look it up later instead of recomputing it.
 
 Caching is one of the most effective ways to boost an application's performance.
@@ -36,8 +36,6 @@ millions of views while keeping response times low and server bills manageable.
 
 Types of Caching
 ----------------
-
-This is an introduction to some of the common types of caching.
 
 By default, [Action Controller
 Caching](https://api.rubyonrails.org/classes/ActionController/Caching.html) is
@@ -66,6 +64,14 @@ block's return value is written to the cache under the given cache key and
 returned. In case of cache hit, the cached value is returned directly without
 executing the block.
 
+For example:
+
+```ruby
+# Fetch a value with a block to set a default if it doesn’t exist
+welcome_message = Rails.cache.fetch("welcome_message") { "Welcome to Rails!" }
+puts welcome_message # Output: Welcome to Rails!
+```
+
 INFO: A cache hit means Rails found an existing value in the cache and could
 reuse it. A cache miss means the value was not in the cache yet, so Rails had to
 generate it and store it. Cache misses are normal, especially when an entry
@@ -76,14 +82,6 @@ For more advanced use cases, `Rails.cache.fetch` also accepts options such as
 reusing a recently expired entry while one process rebuilds it. The full set of
 options is documented in
 [`ActiveSupport::Cache::Store`](https://api.rubyonrails.org/classes/ActiveSupport/Cache/Store.html).
-
-For example:
-
-```ruby
-# Fetch a value with a block to set a default if it doesn’t exist
-welcome_message = Rails.cache.fetch("welcome_message") { "Welcome to Rails!" }
-puts welcome_message # Output: Welcome to Rails!
-```
 
 Alternatively, you can specify whether you want to read or write from the cache
 using `Rails.cache.read` and `Rails.cache.write`. You can delete a key using
@@ -410,7 +408,7 @@ requests can use the following code:
 render(partial: "hotels/hotel", collection: @hotels, cached: true)
 ```
 
-This will load a file named `hotels/_hotel.erb`.
+This will load a file named `hotels/_hotel.html.erb`.
 
 Another option is to specify the `formats` option explicitly.
 

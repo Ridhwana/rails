@@ -89,11 +89,11 @@ the table, the concept of reversibility becomes crucial. With reversible
 migrations, not only does the migration create the table when applied, but it
 also enables smooth rollback functionality. In case of reverting the migration
 above, Active Record intelligently handles the removal of the table, maintaining
-database consistency throughout the process. See the [Reversing
-Migrations section](#using-reversible) for more details.
+database consistency throughout the process. See the [Reversing Migrations
+section](#using-reversible) for more details.
 
 Generating Migration Files
-----------------------
+--------------------------
 
 ### Creating a Standalone Migration
 
@@ -113,8 +113,8 @@ another application or generating a file yourself, be aware of its position in
 the order. You can read more about how the timestamps are used in the [Rails
 Migration Version Control section](#rails-migration-version-control).
 
-NOTE: You can override the directory that migrations are stored in by setting the
-`migrations_paths` option in your `config/database.yml`.
+NOTE: You can override the directory that migrations are stored in by setting
+the `migrations_paths` option in your `config/database.yml`.
 
 When generating a migration, Active Record automatically prepends the current
 timestamp to the file name of the migration. For example, running the command
@@ -166,7 +166,8 @@ class CreateProducts < ActiveRecord::Migration[8.2]
 end
 ```
 
-NOTE: If you don't specify a type for a field (e.g., `name` instead of `name:string`), Rails will default to type `string`.
+NOTE: If you don't specify a type for a field (e.g., `name` instead of
+`name:string`), Rails will default to type `string`.
 
 The generated file with its contents is just a starting point, and you can add
 or remove from it as you see fit by editing the
@@ -195,9 +196,9 @@ end
 
 NOTE: Rails infers the target table from the migration name when it matches the
 `add_<columns>_to_<table>` or `remove_<columns>_from_<table>` patterns. Using a
-name such as `AddPartNumberToProducts` lets the generator configure
-`add_column :products, ...` automatically. For more on these conventions, run
-`bin/rails generate migration --help` to see the generator usage and examples.
+name such as `AddPartNumberToProducts` lets the generator configure `add_column
+:products, ...` automatically. For more on these conventions, run `bin/rails
+generate migration --help` to see the generator usage and examples.
 
 If you'd like to add an index on the new column, you can do that as well.
 
@@ -588,8 +589,8 @@ create_join_table :products, :categories, column_options: { null: true }
 ```
 
 By default, the name of the join table comes from the union of the first two
-arguments provided to create_join_table, in lexical order. In this case,
-the table would be named `categories_products`.
+arguments provided to create_join_table, in lexical order. In this case, the
+table would be named `categories_products`.
 
 WARNING: The precedence between model names is calculated using the `<=>`
 operator for `String`. This means that if the strings are of different lengths,
@@ -706,8 +707,8 @@ Column modifiers can be applied when creating or changing a column:
 * `default`      Allows to set a default value on the column. Note that if you
   are using a dynamic value (such as a date), the default will only be
   calculated the first time (i.e. on the date the migration is applied). Use
-  `nil` for `NULL`. Depending on your database, existing records may not
-  receive the default value.
+  `nil` for `NULL`. Depending on your database, existing records may not receive
+  the default value.
 * `limit`        Sets the maximum number of characters for a `string` column and
   the maximum number of bytes for `text/binary/integer` columns.
 * `null`         Allows or disallows `NULL` values in the column.
@@ -732,10 +733,11 @@ add_column :users, :name, :string, algorithm: :instant, lock: :none
 add_index :users, :email, algorithm: :inplace, lock: :none
 ```
 
-The MySQL `algorithm` option accepts `:default`, `:copy`, `:inplace`, or `:instant`.
-The `lock` option accepts `:default`, `:none`, `:shared`, or `:exclusive`.
-See the [MySQL documentation on Online DDL](https://dev.mysql.com/doc/refman/en/innodb-online-ddl-operations.html)
-for details on which algorithms and lock modes are supported for each operation.
+The MySQL `algorithm` option accepts `:default`, `:copy`, `:inplace`, or
+`:instant`. The `lock` option accepts `:default`, `:none`, `:shared`, or
+`:exclusive`. See the [MySQL documentation on Online
+DDL](https://dev.mysql.com/doc/refman/en/innodb-online-ddl-operations.html) for
+details on which algorithms and lock modes are supported for each operation.
 
 NOTE: PostgreSQL also supports the `algorithm` option on `add_index` and
 `remove_index` (e.g., `algorithm: :concurrently`), but does not support `lock`.
@@ -798,8 +800,8 @@ add_foreign_key :articles, :authors
 
 The [`add_foreign_key`][] call adds a new constraint to the `articles` table.
 The constraint guarantees that a row in the `authors` table exists where the
-`id` column matches the `articles.author_id` to ensure all authors listed in
-the articles table are valid authors listed in the authors table.
+`id` column matches the `articles.author_id` to ensure all authors listed in the
+articles table are valid authors listed in the authors table.
 
 NOTE: When using `references` in a migration, you are creating a new column in
 the table and you'll have the option to add a foreign key using `foreign_key:
@@ -1207,9 +1209,9 @@ This is all taken care of by `revert`.
 
 PostgreSQL supports [composite
 types](https://www.postgresql.org/docs/current/static/rowtypes.html), which let
-you define structured types with multiple named fields, similar to a
-struct. Rails does not currently provide first-class support for these types.
-When used, they are treated as plain text columns.
+you define structured types with multiple named fields, similar to a struct.
+Rails does not currently provide first-class support for these types. When used,
+they are treated as plain text columns.
 
 You can define and use a composite type like this:
 
@@ -1594,8 +1596,9 @@ summed up in the schema file.
 
 The format of the schema dump generated by Rails is controlled by the
 [`config.active_record.schema_format`][] setting defined in
-`config/application.rb`, or the `schema_format` value in the database configuration.
-By default, the format is `:ruby`, or alternatively can be set to `:sql`.
+`config/application.rb`, or the `schema_format` value in the database
+configuration. By default, the format is `:ruby`, or alternatively can be set to
+`:sql`.
 
 #### Using the default `:ruby` schema
 
@@ -1653,8 +1656,8 @@ dump, add this to an initializer:
 ActiveRecord::Tasks::DatabaseTasks.structure_dump_flags = ["--no-comments"]
 ```
 
-For MySQL and MariaDB, this file will
-contain the output of `SHOW CREATE TABLE` for the various tables.
+For MySQL and MariaDB, this file will contain the output of `SHOW CREATE TABLE`
+for the various tables.
 
 To load the schema from `db/structure.sql`, run `bin/rails db:schema:load`.
 Loading this file is done by executing the SQL statements it contains. By
@@ -1923,7 +1926,7 @@ something Active Record can work with easily.
 
 #### Non-Conventional Tables
 
-In some databases—such as PostgreSQL—views can even be updateable, meaning you
+In some databases, such as PostgreSQL, views can even be updateable, meaning you
 can insert, update, or delete records through them under certain conditions.
 
 Imagine you're working with a legacy table like this:
@@ -2013,7 +2016,7 @@ irb> Article.count
 ```
 
 Since the view only includes non-archived articles `(WHERE "BL_ARCH" = 'f')`,
-archiving an article causes it to disappear from the view—without needing to
+archiving an article causes it to disappear from the view, without needing to
 manually filter it out in your application code.
 
 #### Compatibility Notes
@@ -2039,18 +2042,18 @@ and the connection, giving you control over how schema changes are applied to
 the database.
 
 By default, Rails uses [`ActiveRecord::Migration::DefaultStrategy`][], which
-executes migrations by sending method calls directly to the connection.
-However, you can replace this with your own strategy to modify, validate,
-or even prevent certain migration operations. Migration strategies are
-especially useful when you need different migration behavior across
-environments. For example, production migrations may require:
+executes migrations by sending method calls directly to the connection. However,
+you can replace this with your own strategy to modify, validate, or even prevent
+certain migration operations. Migration strategies are especially useful when
+you need different migration behavior across environments. For example,
+production migrations may require:
 
 * **Safety and Validation**: Prevent dangerous operations like dropping tables
   or removing columns in production environments.
-* **Online Schema Changes**: Integrate with tools that perform schema
-  changes without downtime (e.g., `pt-online-schema-change`, `gh-ost`).
-* **Centralized Management**: Submit migrations to a centralized service
-  rather than executing them directly, useful in large-scale deployments.
+* **Online Schema Changes**: Integrate with tools that perform schema changes
+  without downtime (e.g., `pt-online-schema-change`, `gh-ost`).
+* **Centralized Management**: Submit migrations to a centralized service rather
+  than executing them directly, useful in large-scale deployments.
 
 ### Configuring a Global Migration Strategy
 
@@ -2085,9 +2088,10 @@ You can also subclass [`ActiveRecord::Migration::ExecutionStrategy`][], the base
 strategy class. This is useful if you want to define all migration behavior from
 scratch, without having any methods forwarded to the connection.
 
-Once you've defined your custom strategy, make it the default for migrations across
-all database connections by setting [`config.active_record.migration_strategy`][].
-For example, to set a custom strategy in production:
+Once you've defined your custom strategy, make it the default for migrations
+across all database connections by setting
+[`config.active_record.migration_strategy`][]. For example, to set a custom
+strategy in production:
 
 ```ruby
 # config/environments/production.rb
@@ -2138,8 +2142,8 @@ end
 ```
 
 Migrations running against `primary` will use `MySQLMigrationStrategy`, and
-migrations running against `animals` will use `PostgreSQLMigrationStrategy`.
-The adapter-specific strategy takes precedence over any globally-configured
+migrations running against `animals` will use `PostgreSQLMigrationStrategy`. The
+adapter-specific strategy takes precedence over any globally-configured
 strategy.
 
 [`ActiveRecord::Migration::DefaultStrategy`]:

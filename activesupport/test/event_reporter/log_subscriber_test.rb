@@ -73,8 +73,33 @@ class ActiveSupport::EventReporter::LogSubscriberTest < ActiveSupport::TestCase
     assert_instance_of(ActiveSupport::LogSubscriber::TestHelper::MockLogger, subclass.logger)
   end
 
-  test ".subscription_filter" do
-    ActiveSupport.event_reporter.notify("other_namespace_that_shouldnt_work.info_only")
-    assert_equal [], @logger.logged(:info)
+  test "nil logger" do
+    MyLogSubscriber.logger = nil
+
+    subclass = Class.new(MyLogSubscriber) do
+      def self.default_logger
+        nil
+      end
+    end
+
+    assert_nothing_raised { subclass.new.emit(name: "test.debug_only") }
   end
+
+  test ".subscription_filter" do
+    event_reporter_raise_on_error do
+      ActiveSupport.event_reporter.notify("other_namespace_that_shouldnt_work.info_only")
+      assert_equal [], @logger.logged(:info)
+
+      ActiveSupport.event_reporter.notify("no_namespace_info_only")
+      assert_equal [], @logger.logged(:info)
+    end
+  end
+
+  private
+    def event_reporter_raise_on_error
+      ActiveSupport.event_reporter.raise_on_error = true
+      yield
+    ensure
+      ActiveSupport.event_reporter.raise_on_error = false
+    end
 end

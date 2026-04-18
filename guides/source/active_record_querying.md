@@ -870,31 +870,36 @@ If you want to check for the existence of an object without instantiating the ob
 This method will query the database using the same query as `find`, but instead of returning an
 object or collection of objects it will return either `true` or `false`.
 
-```ruby
-Customer.exists?(1)
-# SELECT 1 AS one FROM customers WHERE customers.id = 1 LIMIT 1
+```irb
+store(dev)> Customer.exists?(1)
+SELECT 1 AS one FROM customers WHERE customers.id = 1 LIMIT 1
+=> true
 ```
 
 The `exists?` method also takes multiple values, but the catch is that it will return `true` if any
 one of those records exists.
 
-```ruby
-Customer.exists?(id: [1, 2, 3])
-# or
-Customer.exists?(first_name: ["Jane", "Sergei"])
+```irb
+store(dev)> Customer.exists?(id: [1, 2, 3])
+=> true
+
+store(dev)> Customer.exists?(first_name: ["Jane", "Sergei"])
+=> true
 ```
 
 It's even possible to use `exists?` without any arguments on a model or a relation.
 
-```ruby
-Customer.where(first_name: "Ryan").exists?
+```irb
+store(dev)> Customer.where(first_name: "Ryan").exists?
+=> true
 ```
 
 The above returns `true` if there is at least one customer with the `first_name` 'Ryan' and `false`
 otherwise.
 
-```ruby
-Customer.exists?
+```irb
+store(dev)> Customer.exists?
+=> true
 ```
 
 The above returns `false` if the `customers` table is empty and `true` otherwise.
@@ -905,47 +910,47 @@ You can also use `any?` to check for existence on a model or relation.
 
 If the records have already been loaded, `any?` will use the in-memory records instead of querying the database again:
 
-```ruby
-orders = Order.limit(10).load
-# SELECT orders.* FROM orders LIMIT 10
-orders.any?
-# => true
+```irb
+store(dev)> orders = Order.limit(10).load
+SELECT orders.* FROM orders LIMIT 10
+store(dev)> orders.any?
+=> true
 ```
 
-```ruby
-# via a model
-Order.any?
-# SELECT 1 FROM orders LIMIT 1
+```irb
+store(dev)> Order.any?
+SELECT 1 FROM orders LIMIT 1
+=> true
 
-# via a named scope
-Order.shipped.any?
-# SELECT 1 FROM orders WHERE orders.status = 0 LIMIT 1
+store(dev)> Order.shipped.any?
+SELECT 1 FROM orders WHERE orders.status = 0 LIMIT 1
+=> true
 
-# via a relation
-Book.where(out_of_print: true).any?
+store(dev)> Book.where(out_of_print: true).any?
+=> true
 
-# via an association
-Customer.first.orders.any?
+store(dev)> Customer.first.orders.any?
+=> true
 ```
 
 ### `many?`
 
 You can use `many?` to check whether more than one record exists on a model or relation. It uses SQL `count` unless the records have already been loaded.
 
-```ruby
-# via a model
-Order.many?
-# SELECT COUNT(*) FROM (SELECT 1 FROM orders LIMIT 2)
+```irb
+store(dev)> Order.many?
+SELECT COUNT(*) FROM (SELECT 1 FROM orders LIMIT 2)
+=> true
 
-# via a named scope
-Order.shipped.many?
-# SELECT COUNT(*) FROM (SELECT 1 FROM orders WHERE orders.status = 0 LIMIT 2)
+store(dev)> Order.shipped.many?
+SELECT COUNT(*) FROM (SELECT 1 FROM orders WHERE orders.status = 0 LIMIT 2)
+=> true
 
-# via a relation
-Book.where(out_of_print: true).many?
+store(dev)> Book.where(out_of_print: true).many?
+=> true
 
-# via an association
-Customer.first.orders.many?
+store(dev)> Customer.first.orders.many?
+=> true
 ```
 
 [`exists?`]: https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-exists-3F

@@ -389,7 +389,7 @@ If you are using [composite primary keys](active_record_composite_primary_keys.h
 #### Dynamic Finder Methods
 
 For every field (also known as an attribute) you define in your table,
-Active Record provides a finder method. If you have a field called `first_name` on your `Customer` model for example,
+Active Record dynamically provides a finder method. If you have a field called `first_name` on your `Customer` model for example,
 you get the `find_by_first_name` finder method for free from Active Record.
 
 ```irb

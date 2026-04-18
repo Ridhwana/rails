@@ -12,7 +12,7 @@ further detail in this guide. You will learn:
 
 * About Instrumentation
 * How to instrument your own events.
-* How to subscribe to events.
+* How to subscribe to instrumentation events.
 * The built-in instrumentation events available inside Rails.
 
 --------------------------------------------------------------------------------
@@ -22,22 +22,23 @@ Introduction to Instrumentation
 
 The Instrumentation API provides a way to instrument code and subscribe to
 events that occur in your application. Instrumentation means wrapping a block of
-code so that, when it runs, its execution is measured and an event is emitted with a name and optional
-payload. Any subscribers listening for that event will then be notified and can
-react, for example, they can log information, benchmark, or perform some other
-action. This makes it possible to observe behavior within the Rails framework,
-in your own code, or even in standalone Ruby scripts. There are a few parts that
-are vital to understanding the Instrumentation API: events and subscribers.
+code so that, when it runs, its execution is measured and an instrumentation
+event is emitted with a name and optional payload. Any subscribers listening for
+that event will then be notified and can react, for example, they can log
+information, benchmark, or perform some other action. This makes it possible to
+observe behavior within the Rails framework, in your own code, or even in
+standalone Ruby scripts. There are a few parts that are vital to understanding
+the Instrumentation API: events and subscribers.
 
 NOTE: The Instrumentation API is intended for framework code, not application
 code. For application-level event reporting, use [Active Support Structured
 Events](active_support_structured_events.html) instead.
 
-### Events
+### Instrumentation Events
 
-An event is a record of something that has happened, and is emitted when an
-instrumented block of code is called. Events have a name and optional data
-(called the payload).
+An instrumentation event is a record of something that has happened, and is
+emitted when an instrumented block of code is called. Events have a name and
+optional data (called the payload).
 
 For example, when Active Record executes a SQL query, it instruments the
 `sql.active_record` event. This event has the name `sql.active_record` and
@@ -220,9 +221,9 @@ Rails Framework Instrumentation
 Within the Ruby on Rails framework, there are a number of built-in
 instrumentation points for common operations.
 
-Each heading below lists the event name you can subscribe to, explains how the
-event is triggered, and displays a corresponding example `event.payload` from
-the subscribed event.
+Each heading below lists the instrumentation event name you can subscribe to,
+explains how the event is triggered, and displays a corresponding example
+`event.payload` from the subscribed event.
 
 To subscribe to a specific event, use
 [`ActiveSupport::Notifications.subscribe`](https://api.rubyonrails.org/classes/ActiveSupport/Notifications.html#method-c-subscribe).
@@ -251,8 +252,9 @@ ActiveSupport::Notifications.subscribe "process_action.action_controller" do |ev
 end
 ```
 
-NOTE: `event.payload` is a hash with the payload of the event. Below we describe
-the keys, and examples values that you can expect to see in the payload.
+NOTE: `event.payload` is a hash with the payload of the instrumentation event.
+Below we describe the keys, and example values that you can expect to see in
+the payload.
 
 Read more about subscribing to the event in [Subscribing to an
 Event](#subscribing-to-an-event).

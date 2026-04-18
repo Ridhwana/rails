@@ -1582,13 +1582,14 @@ end
 
 WARNING: Your database needs to support the raw SQL that you pass in to the `lock` method, otherwise an `ActiveRecord::StatementInvalid` exception will be raised.
 
-If you already have an instance of your model, you can start a transaction and acquire the lock in one go using the [`with_lock`][] method:
+If you already have an instance of your model, you can start a transaction and acquire the lock in one go using the [`with_lock`][] method. The block receives the current transaction so you can register callbacks:
 
 ```ruby
 book = Book.first
-book.with_lock do
+book.with_lock do |transaction|
   # This block is called within a transaction,
   # book is already locked.
+  transaction.after_commit { puts "hello" }
   book.increment!(:views)
 end
 ```

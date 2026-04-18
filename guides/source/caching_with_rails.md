@@ -20,7 +20,7 @@ What is Caching?
 
 Caching means storing content generated during the request-response cycle and
 reusing it when responding to similar requests. It avoids doing an expensive
-operation more than  - think of it like saving the result of something expensive
+operation more than once - think of it like saving the result of something expensive
 so you can look it up later instead of recomputing it.
 
 Caching is one of the most effective ways to boost an application's performance.

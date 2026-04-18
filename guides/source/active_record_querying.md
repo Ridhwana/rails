@@ -458,13 +458,497 @@ NOTE: In the console, `Customer.all` appears to execute the query because the re
 
 You can also use other methods like [`order`][], [`limit`][], and [`group`][] to further refine your queries. These methods are covered in detail in the [Filtering Records](#filtering-records), [Ordering Records](#ordering-records), [Limit and Offset](#limiting-records), and [Grouping Records](#grouping-records) sections.
 
-TIP: For large datasets, consider using the batch processing methods described in the next section to avoid loading all records into memory at once.
+TIP: For large datasets, consider using the batch processing methods described later in this section to avoid loading all records into memory at once.
 
 [`all`]: https://api.rubyonrails.org/classes/ActiveRecord/Scoping/Named/ClassMethods.html#method-i-all
 [`where`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-where
 [`order`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-order
 [`limit`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-limit
 [`group`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-group
+
+### Understanding Method Chaining
+
+Active Record supports [Method Chaining](https://en.wikipedia.org/wiki/Method_chaining),
+which allows us to use multiple Active Record methods together in a simple and straightforward way.
+
+You can chain methods in a statement when the previous method called returns an
+[`ActiveRecord::Relation`][], like `all`, `where`, and `joins`. Methods that return
+a single object must be at the end of the statement. You can read more about retrieving a single object in the [Retrieving a Single Object Section](#retrieving-a-single-object).
+
+When an Active Record method is called, the query is not immediately generated and sent to the database. Instead, the query is sent only when the data is actually needed. So each example below generates a single query.
+
+NOTE: In the Rails console, queries may appear to execute unexpectedly because the console calls `inspect` on the result to display it. This triggers the query execution even if you're just exploring the relation object. For example, typing `Customer.where(active: true)` in the console will execute the query immediately to show you the results, even though the relation is lazy-loaded by default.
+
+#### Retrieving Filtered Data from Multiple Tables
+
+```ruby
+Customer
+  .select("customers.id, customers.last_name, reviews.body")
+  .joins(:reviews)
+  .where("reviews.created_at > ?", 1.week.ago)
+```
+
+This will generate the following SQL:
+
+```sql
+SELECT customers.id, customers.last_name, reviews.body
+  FROM customers
+  INNER JOIN reviews
+  ON reviews.customer_id = customers.id
+  WHERE (reviews.created_at > "2019-01-08")
+```
+
+#### Retrieving Specific Data from Multiple Tables
+
+```ruby
+Book
+  .select("books.id, books.title, authors.first_name")
+  .joins(:author)
+  .find_by(title: "Abstraction and Specification in Program Development")
+```
+
+This will generate the following SQL:
+
+```sql
+SELECT books.id, books.title, authors.first_name
+  FROM books
+  INNER JOIN authors
+  ON authors.id = books.author_id
+  WHERE books.title = $1 [["title", "Abstraction and Specification in Program Development"]]
+  LIMIT 1
+```
+
+NOTE: If a query matches multiple records, `find_by` will fetch only the first
+one and ignore the others, as specified by the `LIMIT 1` statement above.
+
+### Finding Records and Values
+
+You can find records and values in the database using the following methods.
+
+#### `find_by_sql`
+
+If you'd like to use your own SQL to find records in a table you can use [`find_by_sql`][]. The `find_by_sql` method will return an array of objects even if the underlying query returns just a single record. For example, you could run this query:
+
+```irb
+store(dev)> Customer.find_by_sql("SELECT * FROM customers INNER JOIN orders ON customers.id = orders.customer_id ORDER BY customers.created_at desc")
+=> [#<Customer id: 1, first_name: "Lucas" ...>,
+    #<Customer id: 2, first_name: "Jan" ...>, ...]
+```
+
+`find_by_sql` provides you with a simple way of making custom calls to the database and retrieving instantiated objects.
+
+[`find_by_sql`]: https://api.rubyonrails.org/classes/ActiveRecord/Querying.html#method-i-find_by_sql
+
+#### `select_all`
+
+`find_by_sql` has a close relative called [`lease_connection.select_all`][]. `select_all` will retrieve
+objects from the database using custom SQL just like `find_by_sql` but will not instantiate them.
+This method will return an instance of `ActiveRecord::Result` class and calling `to_a` on this
+object would return you an array of hashes where each hash indicates a record.
+
+```irb
+store(dev)> Customer.lease_connection.select_all("SELECT first_name, created_at FROM customers WHERE id = \"1\"").to_a
+=> [{"first_name"=>"Rafael", "created_at"=>"2012-11-10 23:23:45.281189"},
+    {"first_name"=>"Eileen", "created_at"=>"2013-12-09 11:22:35.221282"}]
+```
+
+[`lease_connection.select_all`]: https://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/DatabaseStatements.html#method-i-select_all
+
+#### `pluck`
+
+[`pluck`][] can be used to pick the value(s) from the named column(s) in the current relation. It accepts a list of column names as an argument and returns an array of values of the specified columns with the corresponding data type.
+
+```irb
+store(dev)> Book.where(out_of_print: true).pluck(:id)
+SELECT id FROM books WHERE out_of_print = true
+=> [1, 2, 3]
+
+store(dev)> Order.distinct.pluck(:status)
+SELECT DISTINCT status FROM orders
+=> ["shipped", "being_packed", "cancelled"]
+
+store(dev)> Customer.pluck(:id, :first_name)
+SELECT customers.id, customers.first_name FROM customers
+=> [[1, "David"], [2, "Fran"], [3, "Jose"]]
+```
+
+`pluck` makes it possible to replace code like:
+
+```ruby
+Customer.select(:id).map { |c| c.id }
+# or
+Customer.select(:id).map(&:id)
+# or
+Customer.select(:id, :first_name).map { |c| [c.id, c.first_name] }
+```
+
+with:
+
+```ruby
+Customer.pluck(:id)
+# or
+Customer.pluck(:id, :first_name)
+```
+
+Unlike `select`, `pluck` directly converts a database result into a Ruby `Array`,
+without constructing `ActiveRecord` objects. This can mean better performance for
+a large or frequently-run query. However, any model method overrides will
+not be available. For example:
+
+```ruby
+class Customer < ApplicationRecord
+  def first_name
+    "I am #{super}"
+  end
+end
+```
+
+```irb
+store(dev)> Customer.select(:first_name).map(&:first_name)
+=> ["I am David", "I am Jeremy", "I am Jose"]
+
+store(dev)> Customer.pluck(:first_name)
+=> ["David", "Jeremy", "Jose"]
+```
+
+You are not limited to querying fields from a single table, you can query multiple tables as well.
+
+```irb
+store(dev)> Order.joins(:customer, :books).pluck("orders.created_at, customers.email, books.title")
+```
+
+Furthermore, unlike `select` and other `Relation` scopes, `pluck` triggers an immediate
+query, and thus cannot be chained with any further scopes, although it can work with
+scopes already constructed earlier:
+
+```irb
+store(dev)> Customer.pluck(:first_name).limit(1)
+NoMethodError: undefined method `limit' for #<Array:0x007ff34d3ad6d8>
+
+store(dev)> Customer.limit(1).pluck(:first_name)
+=> ["David"]
+```
+
+NOTE: You should also know that using `pluck` will trigger eager loading if the relation object contains include values, even if the eager loading is not necessary for the query. For example:
+
+```irb
+store(dev)> assoc = Customer.includes(:reviews)
+store(dev)> assoc.pluck(:id)
+SELECT "customers"."id" FROM "customers" LEFT OUTER JOIN "reviews" ON "reviews"."id" = "customers"."review_id"
+```
+
+One way to avoid this is to `unscope` the includes:
+
+```irb
+store(dev)> assoc.unscope(:includes).pluck(:id)
+```
+
+[`pluck`]: https://api.rubyonrails.org/classes/ActiveRecord/Calculations.html#method-i-pluck
+
+#### `pick`
+
+[`pick`][] can be used to pick the value(s) from the named column(s) in the current relation. It accepts a list of column names as an argument and returns the first row of the specified column values ​​with corresponding data type.
+`pick` is a short-hand for `relation.limit(1).pluck(*column_names).first`, which is primarily useful when you already have a relation that is limited to one row.
+
+`pick` makes it possible to replace code like:
+
+```ruby
+Customer.where(id: 1).pluck(:id).first
+```
+
+with:
+
+```ruby
+Customer.where(id: 1).pick(:id)
+# => 1
+```
+
+[`pick`]: https://api.rubyonrails.org/classes/ActiveRecord/Calculations.html#method-i-pick
+
+#### `ids`
+
+[`ids`][] can be used to pluck all the IDs for the relation using the table's primary key.
+
+```irb
+store(dev)> Customer.ids
+SELECT id FROM customers
+```
+
+If you are using a different `primary_key` this will be used instead:
+
+```ruby
+class Customer < ApplicationRecord
+  self.primary_key = "customer_id"
+end
+```
+
+```irb
+store(dev)> Customer.ids
+SELECT customer_id FROM customers
+```
+
+[`ids`]: https://api.rubyonrails.org/classes/ActiveRecord/Calculations.html#method-i-ids
+
+Finding or Building a New Object
+--------------------------------
+
+It's common that you need to find a record or create it if it doesn't exist. You can do that with the `find_or_create_by` and `find_or_create_by!` methods.
+
+### `find_or_create_by`
+
+The [`find_or_create_by`][] method checks whether a record with the specified attributes exists. If it doesn't, then `create` is called.
+
+Suppose you want to find a customer with the email "andy@example.com", and if there's no customer with that email, then you want to create one. You can do this by running:
+
+```irb
+store(dev)> Customer.find_or_create_by(email: "andy@example.com")
+=> #<Customer id: 5, email: "andy@example.com", last_name: nil, title: nil, visits: 0, orders_count: nil, lock_version: 0, created_at: "2019-01-17 07:06:45", updated_at: "2019-01-17 07:06:45">
+```
+
+The SQL generated by this method will look like this:
+
+```sql
+SELECT *
+  FROM customers
+  WHERE (customers.email = "andy@example.com")
+  LIMIT 1
+
+BEGIN
+INSERT INTO customers (created_at, email, locked, orders_count, updated_at) VALUES ("2011-08-30 05:22:57", "andy@example.com", 1, NULL, "2011-08-30 05:22:57")
+COMMIT
+```
+
+`find_or_create_by` returns either the record that already exists or the new record. In this case, we didn't already have a customer with that email so the record is created and returned.
+
+The new record might not be saved to the database; that depends on whether validations passed or not (just like `create`).
+
+Suppose you want to set the `locked` attribute to `false` if you're
+creating a new record, but you don't want to include it in the query.
+You want to find the customer with the email "andy@example.com", and if that customer doesn't exist, then create a customer with that email which is not locked.
+
+You can achieve this in two ways. The first is to use `create_with`:
+
+```ruby
+Customer.create_with(locked: false).find_or_create_by(email: "andy@example.com")
+```
+
+The second way is using a block:
+
+```ruby
+Customer.find_or_create_by(email: "andy@example.com") do |c|
+  c.locked = false
+end
+```
+
+The block will only be executed if the customer is being created. The
+second time we run this code, the block will be ignored.
+
+NOTE: `find_or_create_by` is not atomic and can have race conditions. In concurrent scenarios, two processes might both check for a record's existence at the same time, find it doesn't exist, and both try to create it, potentially resulting in duplicate records. To avoid race conditions, ensure you have a unique constraint on the database column(s) you're querying, or consider using [`create_or_find_by`](#create-or-find-by) instead, which handles uniqueness constraint violations atomically.
+
+[`find_or_create_by`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html#method-i-find_or_create_by
+
+### `find_or_create_by!`
+
+You can also use [`find_or_create_by!`][] to raise an exception if the new record is invalid. Validations are not covered on this guide, however let's assume that you have temporarily added the following validation to your `Customer` model:
+
+```ruby
+validates :orders_count, presence: true
+```
+
+If you try to create a new `Customer` without passing an `orders_count`, then the record will be invalid and an exception will be raised:
+
+```irb
+store(dev)> Customer.find_or_create_by!(first_name: "Andy")
+ActiveRecord::RecordInvalid: Validation failed: Orders count can't be blank
+```
+
+[`find_or_create_by!`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html#method-i-find_or_create_by-21
+
+### `find_or_initialize_by`
+
+The [`find_or_initialize_by`][] method will work just like
+`find_or_create_by` but it will call `new` instead of `create`. This
+means that a new model instance will be created in memory but won't be
+saved to the database.
+
+You can use `find_or_initialize_by` to find the customer named 'Nina':
+
+```irb
+store(dev)> nina = Customer.find_or_initialize_by(first_name: "Nina")
+=> #<Customer id: nil, first_name: "Nina", orders_count: 0, locked: true, created_at: "2011-08-30 06:09:27", updated_at: "2011-08-30 06:09:27">
+
+store(dev)> nina.persisted?
+=> false
+
+store(dev)> nina.new_record?
+=> true
+```
+
+Since the object is not yet stored in the database, the SQL generated will look like this:
+
+```sql
+SELECT * FROM customers WHERE (customers.first_name = "Nina") LIMIT 1
+```
+
+When you want to save it to the database, you can call `save`:
+
+```irb
+store(dev)> nina.save
+=> true
+```
+
+[`find_or_initialize_by`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html#method-i-find_or_initialize_by
+
+### `create_or_find_by`
+
+The [`create_or_find_by`][] method tries to create a record with the given attributes. If a record with those attributes already exists (indicated by a uniqueness constraint violation), it will find and return that existing record instead. This method is atomic and avoids race conditions that can occur with `find_or_create_by`.
+
+```irb
+store(dev)> Customer.create_or_find_by(first_name: "Andy")
+=> #<Customer id: 5, first_name: "Andy", last_name: nil, title: nil, visits: 0, orders_count: nil, lock_version: 0, created_at: "2019-01-17 07:06:45", updated_at: "2019-01-17 07:06:45">
+```
+
+The SQL generated by this method looks like this on first call:
+
+```sql
+BEGIN
+INSERT INTO customers (created_at, first_name, locked, orders_count, updated_at) VALUES ("2011-08-30 05:22:57", "Andy", 1, NULL, "2011-08-30 05:22:57")
+COMMIT
+```
+
+If the record already exists (due to a uniqueness constraint), the creation will fail and the method will find the existing record:
+
+```sql
+BEGIN
+INSERT INTO customers (created_at, first_name, locked, orders_count, updated_at) VALUES ("2011-08-30 05:22:57", "Andy", 1, NULL, "2011-08-30 05:22:57")
+ROLLBACK
+
+SELECT *
+  FROM customers
+  WHERE (customers.first_name = "Andy")
+  LIMIT 1
+```
+
+The key difference between `create_or_find_by` and `find_or_create_by` is the order of operations and atomicity:
+
+- `find_or_create_by`: First tries to find, then creates if not found. This is **not atomic** and can have race conditions where duplicate records may be created.
+- `create_or_find_by`: First tries to create, then finds if creation fails due to uniqueness constraint violation. This is **atomic** and prevents race conditions.
+
+IMPORTANT: For `create_or_find_by` to work correctly, you must have a unique constraint on the attribute or attributes being queried. Without that constraint, the method can raise duplicate key violations. This method is most appropriate in situations where you expect the record to be created most of the time, where a unique constraint already exists on the relevant attributes, and where you want to avoid race conditions that might otherwise result in duplicate records.
+
+[`create_or_find_by`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html#method-i-create_or_find_by
+
+### `create_or_find_by!`
+
+You can also use [`create_or_find_by!`][] to raise an exception if the record creation fails for reasons other than uniqueness constraint violations. This is similar to `find_or_create_by!` but with the create-first, atomic approach.
+
+```irb
+store(dev)> Customer.create_or_find_by!(first_name: "Andy", orders_count: 5)
+=> #<Customer id: 5, first_name: "Andy", orders_count: 5, ...>
+```
+
+If a validation fails during creation (other than uniqueness), an exception will be raised:
+
+```irb
+store(dev)> Customer.create_or_find_by!(first_name: "Andy", orders_count: nil)
+ActiveRecord::RecordInvalid: Validation failed: Orders count can't be blank
+```
+
+However, if the failure is due to a uniqueness constraint violation, it will find and return the existing record (just like `create_or_find_by`), rather than raising an exception.
+
+[`create_or_find_by!`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html#method-i-create_or_find_by-21
+
+
+Existence of Objects
+--------------------
+
+You can check if a record or records exist in the database using the following methods.
+
+### `exists?`
+
+If you want to check for the existence of an object without instantiating the object there's a method called [`exists?`][].
+This method will query the database using the same query as `find`, but instead of returning an
+object or collection of objects it will return either `true` or `false`.
+
+```ruby
+Customer.exists?(1)
+# SELECT 1 AS one FROM customers WHERE customers.id = 1 LIMIT 1
+```
+
+The `exists?` method also takes multiple values, but the catch is that it will return `true` if any
+one of those records exists.
+
+```ruby
+Customer.exists?(id: [1, 2, 3])
+# or
+Customer.exists?(first_name: ["Jane", "Sergei"])
+```
+
+It's even possible to use `exists?` without any arguments on a model or a relation.
+
+```ruby
+Customer.where(first_name: "Ryan").exists?
+```
+
+The above returns `true` if there is at least one customer with the `first_name` 'Ryan' and `false`
+otherwise.
+
+```ruby
+Customer.exists?
+```
+
+The above returns `false` if the `customers` table is empty and `true` otherwise.
+
+### `any?`
+
+You can also use `any?` to check for existence on a model or relation.
+
+If the records have already been loaded, `any?` will use the in-memory records instead of querying the database again:
+
+```ruby
+orders = Order.limit(10).load
+# SELECT orders.* FROM orders LIMIT 10
+orders.any?
+# => true
+```
+
+```ruby
+# via a model
+Order.any?
+# SELECT 1 FROM orders LIMIT 1
+
+# via a named scope
+Order.shipped.any?
+# SELECT 1 FROM orders WHERE orders.status = 0 LIMIT 1
+
+# via a relation
+Book.where(out_of_print: true).any?
+
+# via an association
+Customer.first.orders.any?
+```
+
+### `many?`
+
+You can use `many?` to check whether more than one record exists on a model or relation. It uses SQL `count` unless the records have already been loaded.
+
+```ruby
+# via a model
+Order.many?
+# SELECT COUNT(*) FROM (SELECT 1 FROM orders LIMIT 2)
+
+# via a named scope
+Order.shipped.many?
+# SELECT COUNT(*) FROM (SELECT 1 FROM orders WHERE orders.status = 0 LIMIT 2)
+
+# via a relation
+Book.where(out_of_print: true).many?
+
+# via an association
+Customer.first.orders.many?
+```
+
+[`exists?`]: https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-exists-3F
 
 ### Retrieving Multiple Objects in Batches
 
@@ -1754,7 +2238,7 @@ Post.left_joins(:author).where.associated(:author)
 Eager Loading Associations
 --------------------------
 
-Eager loading is the mechanism for loading the associated records of the objects returned by `ActiveRecord::Relation` using as few queries as possible.
+Eager loading is the mechanism for loading the associated records of the objects returned by `ActiveRecord::Relation` using the most performant queries possible.
 
 ### N + 1 Queries Problem
 
@@ -2349,491 +2833,6 @@ UPDATE "orders" SET "status" = ?, "updated_at" = ? WHERE "orders"."id" = ?  [["s
 You can read more about enums in the [ActiveRecord::Enum documentation](https://api.rubyonrails.org/classes/ActiveRecord/Enum.html).
 
 [`enum`]: https://api.rubyonrails.org/classes/ActiveRecord/Enum.html#method-i-enum
-
-Understanding Method Chaining
------------------------------
-
-Active Record supports [Method Chaining](https://en.wikipedia.org/wiki/Method_chaining),
-which allows us to use multiple Active Record methods together in a simple and straightforward way.
-
-You can chain methods in a statement when the previous method called returns an
-[`ActiveRecord::Relation`][], like `all`, `where`, and `joins`. Methods that return
-a single object must be at the end of the statement. You can read more about retrieving a single object in the [Retrieving a Single Object Section](#retrieving-a-single-object).
-
-When an Active Record method is called, the query is not immediately generated and sent to the database. Instead, the query is sent only when the data is actually needed. So each example below generates a single query.
-
-NOTE: In the Rails console, queries may appear to execute unexpectedly because the console calls `inspect` on the result to display it. This triggers the query execution even if you're just exploring the relation object. For example, typing `Customer.where(active: true)` in the console will execute the query immediately to show you the results, even though the relation is lazy-loaded by default.
-
-### Retrieving Filtered Data from Multiple Tables
-
-```ruby
-Customer
-  .select("customers.id, customers.last_name, reviews.body")
-  .joins(:reviews)
-  .where("reviews.created_at > ?", 1.week.ago)
-```
-
-This will generate the following SQL:
-
-```sql
-SELECT customers.id, customers.last_name, reviews.body
-  FROM customers
-  INNER JOIN reviews
-  ON reviews.customer_id = customers.id
-  WHERE (reviews.created_at > "2019-01-08")
-```
-
-### Retrieving Specific Data from Multiple Tables
-
-```ruby
-Book
-  .select("books.id, books.title, authors.first_name")
-  .joins(:author)
-  .find_by(title: "Abstraction and Specification in Program Development")
-```
-
-This will generate the following SQL:
-
-```sql
-SELECT books.id, books.title, authors.first_name
-  FROM books
-  INNER JOIN authors
-  ON authors.id = books.author_id
-  WHERE books.title = $1 [["title", "Abstraction and Specification in Program Development"]]
-  LIMIT 1
-```
-
-NOTE: If a query matches multiple records, `find_by` will fetch only the first
-one and ignore the others, as specified by the `LIMIT 1` statement above.
-
-Finding or Building a New Object
---------------------------------
-
-It's common that you need to find a record or create it if it doesn't exist. You can do that with the `find_or_create_by` and `find_or_create_by!` methods.
-
-### `find_or_create_by`
-
-The [`find_or_create_by`][] method checks whether a record with the specified attributes exists. If it doesn't, then `create` is called.
-
-Suppose you want to find a customer with the email "andy@example.com", and if there's no customer with that email, then you want to create one. You can do this by running:
-
-```irb
-store(dev)> Customer.find_or_create_by(email: "andy@example.com")
-=> #<Customer id: 5, email: "andy@example.com", last_name: nil, title: nil, visits: 0, orders_count: nil, lock_version: 0, created_at: "2019-01-17 07:06:45", updated_at: "2019-01-17 07:06:45">
-```
-
-The SQL generated by this method will look like this:
-
-```sql
-SELECT *
-  FROM customers
-  WHERE (customers.email = "andy@example.com")
-  LIMIT 1
-
-BEGIN
-INSERT INTO customers (created_at, email, locked, orders_count, updated_at) VALUES ("2011-08-30 05:22:57", "andy@example.com", 1, NULL, "2011-08-30 05:22:57")
-COMMIT
-```
-
-`find_or_create_by` returns either the record that already exists or the new record. In this case, we didn't already have a customer with that email so the record is created and returned.
-
-The new record might not be saved to the database; that depends on whether validations passed or not (just like `create`).
-
-Suppose you want to set the `locked` attribute to `false` if you're
-creating a new record, but you don't want to include it in the query.
-You want to find the customer with the email "andy@example.com", and if that customer doesn't exist, then create a customer with that email which is not locked.
-
-You can achieve this in two ways. The first is to use `create_with`:
-
-```ruby
-Customer.create_with(locked: false).find_or_create_by(email: "andy@example.com")
-```
-
-The second way is using a block:
-
-```ruby
-Customer.find_or_create_by(email: "andy@example.com") do |c|
-  c.locked = false
-end
-```
-
-The block will only be executed if the customer is being created. The
-second time we run this code, the block will be ignored.
-
-NOTE: `find_or_create_by` is not atomic and can have race conditions. In concurrent scenarios, two processes might both check for a record's existence at the same time, find it doesn't exist, and both try to create it, potentially resulting in duplicate records. To avoid race conditions, ensure you have a unique constraint on the database column(s) you're querying, or consider using [`create_or_find_by`](#create-or-find-by) instead, which handles uniqueness constraint violations atomically.
-
-[`find_or_create_by`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html#method-i-find_or_create_by
-
-### `find_or_create_by!`
-
-You can also use [`find_or_create_by!`][] to raise an exception if the new record is invalid. Validations are not covered on this guide, however let's assume that you have temporarily added the following validation to your `Customer` model:
-
-```ruby
-validates :orders_count, presence: true
-```
-
-If you try to create a new `Customer` without passing an `orders_count`, then the record will be invalid and an exception will be raised:
-
-```irb
-store(dev)> Customer.find_or_create_by!(first_name: "Andy")
-ActiveRecord::RecordInvalid: Validation failed: Orders count can't be blank
-```
-
-[`find_or_create_by!`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html#method-i-find_or_create_by-21
-
-### `find_or_initialize_by`
-
-The [`find_or_initialize_by`][] method will work just like
-`find_or_create_by` but it will call `new` instead of `create`. This
-means that a new model instance will be created in memory but won't be
-saved to the database.
-
-You can use `find_or_initialize_by` to find the customer named 'Nina':
-
-```irb
-store(dev)> nina = Customer.find_or_initialize_by(first_name: "Nina")
-=> #<Customer id: nil, first_name: "Nina", orders_count: 0, locked: true, created_at: "2011-08-30 06:09:27", updated_at: "2011-08-30 06:09:27">
-
-store(dev)> nina.persisted?
-=> false
-
-store(dev)> nina.new_record?
-=> true
-```
-
-Since the object is not yet stored in the database, the SQL generated will look like this:
-
-```sql
-SELECT * FROM customers WHERE (customers.first_name = "Nina") LIMIT 1
-```
-
-When you want to save it to the database, you can call `save`:
-
-```irb
-store(dev)> nina.save
-=> true
-```
-
-[`find_or_initialize_by`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html#method-i-find_or_initialize_by
-
-### `create_or_find_by`
-
-The [`create_or_find_by`][] method tries to create a record with the given attributes. If a record with those attributes already exists (indicated by a uniqueness constraint violation), it will find and return that existing record instead. This method is atomic and avoids race conditions that can occur with `find_or_create_by`.
-
-```irb
-store(dev)> Customer.create_or_find_by(first_name: "Andy")
-=> #<Customer id: 5, first_name: "Andy", last_name: nil, title: nil, visits: 0, orders_count: nil, lock_version: 0, created_at: "2019-01-17 07:06:45", updated_at: "2019-01-17 07:06:45">
-```
-
-The SQL generated by this method looks like this on first call:
-
-```sql
-BEGIN
-INSERT INTO customers (created_at, first_name, locked, orders_count, updated_at) VALUES ("2011-08-30 05:22:57", "Andy", 1, NULL, "2011-08-30 05:22:57")
-COMMIT
-```
-
-If the record already exists (due to a uniqueness constraint), the creation will fail and the method will find the existing record:
-
-```sql
-BEGIN
-INSERT INTO customers (created_at, first_name, locked, orders_count, updated_at) VALUES ("2011-08-30 05:22:57", "Andy", 1, NULL, "2011-08-30 05:22:57")
-ROLLBACK
-
-SELECT *
-  FROM customers
-  WHERE (customers.first_name = "Andy")
-  LIMIT 1
-```
-
-The key difference between `create_or_find_by` and `find_or_create_by` is the order of operations and atomicity:
-
-- `find_or_create_by`: First tries to find, then creates if not found. This is **not atomic** and can have race conditions where duplicate records may be created.
-- `create_or_find_by`: First tries to create, then finds if creation fails due to uniqueness constraint violation. This is **atomic** and prevents race conditions.
-
-IMPORTANT: For `create_or_find_by` to work correctly, you must have a unique constraint on the attribute or attributes being queried. Without that constraint, the method can raise duplicate key violations. This method is most appropriate in situations where you expect the record to be created most of the time, where a unique constraint already exists on the relevant attributes, and where you want to avoid race conditions that might otherwise result in duplicate records.
-
-[`create_or_find_by`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html#method-i-create_or_find_by
-
-### `create_or_find_by!`
-
-You can also use [`create_or_find_by!`][] to raise an exception if the record creation fails for reasons other than uniqueness constraint violations. This is similar to `find_or_create_by!` but with the create-first, atomic approach.
-
-```irb
-store(dev)> Customer.create_or_find_by!(first_name: "Andy", orders_count: 5)
-=> #<Customer id: 5, first_name: "Andy", orders_count: 5, ...>
-```
-
-If a validation fails during creation (other than uniqueness), an exception will be raised:
-
-```irb
-store(dev)> Customer.create_or_find_by!(first_name: "Andy", orders_count: nil)
-ActiveRecord::RecordInvalid: Validation failed: Orders count can't be blank
-```
-
-However, if the failure is due to a uniqueness constraint violation, it will find and return the existing record (just like `create_or_find_by`), rather than raising an exception.
-
-[`create_or_find_by!`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html#method-i-create_or_find_by-21
-
-Finding Records and Values
---------------------------
-
-You can find records and values in the database using the following methods.
-
-### `find_by_sql`
-
-If you'd like to use your own SQL to find records in a table you can use [`find_by_sql`][]. The `find_by_sql` method will return an array of objects even if the underlying query returns just a single record. For example, you could run this query:
-
-```irb
-store(dev)> Customer.find_by_sql("SELECT * FROM customers INNER JOIN orders ON customers.id = orders.customer_id ORDER BY customers.created_at desc")
-=> [#<Customer id: 1, first_name: "Lucas" ...>,
-    #<Customer id: 2, first_name: "Jan" ...>, ...]
-```
-
-`find_by_sql` provides you with a simple way of making custom calls to the database and retrieving instantiated objects.
-
-[`find_by_sql`]: https://api.rubyonrails.org/classes/ActiveRecord/Querying.html#method-i-find_by_sql
-
-### `select_all`
-
-`find_by_sql` has a close relative called [`lease_connection.select_all`][]. `select_all` will retrieve
-objects from the database using custom SQL just like `find_by_sql` but will not instantiate them.
-This method will return an instance of `ActiveRecord::Result` class and calling `to_a` on this
-object would return you an array of hashes where each hash indicates a record.
-
-```irb
-store(dev)> Customer.lease_connection.select_all("SELECT first_name, created_at FROM customers WHERE id = \"1\"").to_a
-=> [{"first_name"=>"Rafael", "created_at"=>"2012-11-10 23:23:45.281189"},
-    {"first_name"=>"Eileen", "created_at"=>"2013-12-09 11:22:35.221282"}]
-```
-
-[`lease_connection.select_all`]: https://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/DatabaseStatements.html#method-i-select_all
-
-### `pluck`
-
-[`pluck`][] can be used to pick the value(s) from the named column(s) in the current relation. It accepts a list of column names as an argument and returns an array of values of the specified columns with the corresponding data type.
-
-```irb
-store(dev)> Book.where(out_of_print: true).pluck(:id)
-SELECT id FROM books WHERE out_of_print = true
-=> [1, 2, 3]
-
-store(dev)> Order.distinct.pluck(:status)
-SELECT DISTINCT status FROM orders
-=> ["shipped", "being_packed", "cancelled"]
-
-store(dev)> Customer.pluck(:id, :first_name)
-SELECT customers.id, customers.first_name FROM customers
-=> [[1, "David"], [2, "Fran"], [3, "Jose"]]
-```
-
-`pluck` makes it possible to replace code like:
-
-```ruby
-Customer.select(:id).map { |c| c.id }
-# or
-Customer.select(:id).map(&:id)
-# or
-Customer.select(:id, :first_name).map { |c| [c.id, c.first_name] }
-```
-
-with:
-
-```ruby
-Customer.pluck(:id)
-# or
-Customer.pluck(:id, :first_name)
-```
-
-Unlike `select`, `pluck` directly converts a database result into a Ruby `Array`,
-without constructing `ActiveRecord` objects. This can mean better performance for
-a large or frequently-run query. However, any model method overrides will
-not be available. For example:
-
-```ruby
-class Customer < ApplicationRecord
-  def first_name
-    "I am #{super}"
-  end
-end
-```
-
-```irb
-store(dev)> Customer.select(:first_name).map(&:first_name)
-=> ["I am David", "I am Jeremy", "I am Jose"]
-
-store(dev)> Customer.pluck(:first_name)
-=> ["David", "Jeremy", "Jose"]
-```
-
-You are not limited to querying fields from a single table, you can query multiple tables as well.
-
-```irb
-store(dev)> Order.joins(:customer, :books).pluck("orders.created_at, customers.email, books.title")
-```
-
-Furthermore, unlike `select` and other `Relation` scopes, `pluck` triggers an immediate
-query, and thus cannot be chained with any further scopes, although it can work with
-scopes already constructed earlier:
-
-```irb
-store(dev)> Customer.pluck(:first_name).limit(1)
-NoMethodError: undefined method `limit' for #<Array:0x007ff34d3ad6d8>
-
-store(dev)> Customer.limit(1).pluck(:first_name)
-=> ["David"]
-```
-
-NOTE: You should also know that using `pluck` will trigger eager loading if the relation object contains include values, even if the eager loading is not necessary for the query. For example:
-
-```irb
-store(dev)> assoc = Customer.includes(:reviews)
-store(dev)> assoc.pluck(:id)
-SELECT "customers"."id" FROM "customers" LEFT OUTER JOIN "reviews" ON "reviews"."id" = "customers"."review_id"
-```
-
-One way to avoid this is to `unscope` the includes:
-
-```irb
-store(dev)> assoc.unscope(:includes).pluck(:id)
-```
-
-[`pluck`]: https://api.rubyonrails.org/classes/ActiveRecord/Calculations.html#method-i-pluck
-
-### `pick`
-
-[`pick`][] can be used to pick the value(s) from the named column(s) in the current relation. It accepts a list of column names as an argument and returns the first row of the specified column values ​​with corresponding data type.
-`pick` is a short-hand for `relation.limit(1).pluck(*column_names).first`, which is primarily useful when you already have a relation that is limited to one row.
-
-`pick` makes it possible to replace code like:
-
-```ruby
-Customer.where(id: 1).pluck(:id).first
-```
-
-with:
-
-```ruby
-Customer.where(id: 1).pick(:id)
-# => 1
-```
-
-[`pick`]: https://api.rubyonrails.org/classes/ActiveRecord/Calculations.html#method-i-pick
-
-### `ids`
-
-[`ids`][] can be used to pluck all the IDs for the relation using the table's primary key.
-
-```irb
-store(dev)> Customer.ids
-SELECT id FROM customers
-```
-
-If you are using a different `primary_key` this will be used instead:
-
-```ruby
-class Customer < ApplicationRecord
-  self.primary_key = "customer_id"
-end
-```
-
-```irb
-store(dev)> Customer.ids
-SELECT customer_id FROM customers
-```
-
-[`ids`]: https://api.rubyonrails.org/classes/ActiveRecord/Calculations.html#method-i-ids
-
-Existence of Objects
---------------------
-
-You can check if a record or records exist in the database using the following methods.
-
-### `exists?`
-
-If you want to check for the existence of an object without instantiating the object there's a method called [`exists?`][].
-This method will query the database using the same query as `find`, but instead of returning an
-object or collection of objects it will return either `true` or `false`.
-
-```ruby
-Customer.exists?(1)
-# SELECT 1 AS one FROM customers WHERE customers.id = 1 LIMIT 1
-```
-
-The `exists?` method also takes multiple values, but the catch is that it will return `true` if any
-one of those records exists.
-
-```ruby
-Customer.exists?(id: [1, 2, 3])
-# or
-Customer.exists?(first_name: ["Jane", "Sergei"])
-```
-
-It's even possible to use `exists?` without any arguments on a model or a relation.
-
-```ruby
-Customer.where(first_name: "Ryan").exists?
-```
-
-The above returns `true` if there is at least one customer with the `first_name` 'Ryan' and `false`
-otherwise.
-
-```ruby
-Customer.exists?
-```
-
-The above returns `false` if the `customers` table is empty and `true` otherwise.
-
-### `any?`
-
-You can also use `any?` to check for existence on a model or relation.
-
-If the records have already been loaded, `any?` will use the in-memory records instead of querying the database again:
-
-```ruby
-orders = Order.limit(10).load
-# SELECT orders.* FROM orders LIMIT 10
-orders.any?
-# => true
-```
-
-```ruby
-# via a model
-Order.any?
-# SELECT 1 FROM orders LIMIT 1
-
-# via a named scope
-Order.shipped.any?
-# SELECT 1 FROM orders WHERE orders.status = 0 LIMIT 1
-
-# via a relation
-Book.where(out_of_print: true).any?
-
-# via an association
-Customer.first.orders.any?
-```
-
-### `many?`
-
-You can use `many?` to check whether more than one record exists on a model or relation. It uses SQL `count` unless the records have already been loaded.
-
-```ruby
-# via a model
-Order.many?
-# SELECT COUNT(*) FROM (SELECT 1 FROM orders LIMIT 2)
-
-# via a named scope
-Order.shipped.many?
-# SELECT COUNT(*) FROM (SELECT 1 FROM orders WHERE orders.status = 0 LIMIT 2)
-
-# via a relation
-Book.where(out_of_print: true).many?
-
-# via an association
-Customer.first.orders.many?
-```
-
-[`exists?`]: https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-exists-3F
 
 Calculations
 ------------

@@ -105,14 +105,17 @@ Retrieving Objects from the Database
 
 To retrieve objects from the database, Active Record provides several finder methods. Each finder method allows you to pass arguments into it to perform certain queries on your database without writing raw SQL.
 
-This guide introduces query methods such as [`where`][], [`order`][], [`group`][], [`joins`][], and [`includes`][]. It starts with the most common finder methods:
+This section focuses on some of the most common finder methods:
 
-* [`find`][]
-* [`find_by`][]
-* [`take`][]
-* [`first`][]
-* [`last`][]
-* [`all`][]
+* [`find`](#find)
+* [`take`](#take)
+* [`first`](#first)
+* [`last`](#last)
+* [`find_by`](#find-by)
+
+Other query methods, such as [`where`](#filtering-records) and [`group`](#grouping-records), are covered later in this guide.
+
+For a more complete list of query and finder methods, see the [`ActiveRecord::QueryMethods`][] and [`ActiveRecord::FinderMethods`][] API documentation.
 
 Finder methods that return a collection, such as `where` and `group`, return an instance of [`ActiveRecord::Relation`][].  Methods that find a single entity, such as `find` and `first`, return a single instance of the model.
 
@@ -124,14 +127,11 @@ The primary operation of `ActiveRecord::Relation` can be summarized as:
 * Run `after_find` and then `after_initialize` callbacks, if any.
 
 [`ActiveRecord::Relation`]: https://api.rubyonrails.org/classes/ActiveRecord/Relation.html
-[`annotate`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-annotate
-[`create_with`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-create_with
+[`ActiveRecord::QueryMethods`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html
+[`ActiveRecord::FinderMethods`]: https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html
 [`distinct`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-distinct
 [`eager_load`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-eager_load
-[`extending`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-extending
-[`extract_associated`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-extract_associated
 [`find`]: https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-find
-[`from`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-from
 [`group`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-group
 [`having`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-having
 [`includes`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-includes
@@ -141,7 +141,6 @@ The primary operation of `ActiveRecord::Relation` can be summarized as:
 [`lock`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-lock
 [`none`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-none
 [`offset`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-offset
-[`optimizer_hints`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-optimizer_hints
 [`order`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-order
 [`preload`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-preload
 [`readonly`]: https://api.rubyonrails.org/classes/ActiveRecord/QueryMethods.html#method-i-readonly
@@ -269,7 +268,7 @@ The SQL equivalent of the above is:
 SELECT * FROM customers ORDER BY customers.id ASC LIMIT 3
 ```
 
-Models with [composite primary keys](active_record_composite_primary_keys.html) will use the full composite primary key for ordering. See the [Composite Primary Keys guide](active_record_composite_primary_keys.html) for more details.
+If your model uses [composite primary keys](active_record_composite_primary_keys.html), see the [Composite Primary Keys guide](active_record_composite_primary_keys.html) for details on finder behavior and ordering.
 
 On a collection that is ordered using `order`, `first` will return the first record ordered by the specified attribute for `order`.
 
@@ -306,7 +305,7 @@ SELECT * FROM customers ORDER BY customers.id DESC LIMIT 1
 
 The `last` method returns `nil` if no matching record is found and no exception will be raised.
 
-Models with [composite primary keys](active_record_composite_primary_keys.html) will use the full composite primary key for ordering. See the [Composite Primary Keys guide](active_record_composite_primary_keys.html) for more details.
+If your model uses [composite primary keys](active_record_composite_primary_keys.html), see the [Composite Primary Keys guide](active_record_composite_primary_keys.html) for details on finder behavior and ordering.
 
 If your [default scope](active_record_querying.html#applying-a-default-scope) contains an [`order`](active_record_querying.html#ordering-records) method, `last` will return the last record according to this ordering.
 
@@ -387,7 +386,7 @@ If you are using [composite primary keys](active_record_composite_primary_keys.h
 [`find_by`]: https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-find_by
 [`find_by!`]: https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-find_by-21
 
-#### Dynamic Finders
+#### Dynamic Finder Methods
 
 For every field (also known as an attribute) you define in your table,
 Active Record provides a finder method. If you have a field called `first_name` on your `Customer` model for example,
@@ -763,15 +762,7 @@ an array of tuples:
 Book.where([:author_id, :id] => [[15, 1], [15, 2]])
 ```
 
-This syntax can be useful for querying relations where the table uses a [composite primary key](active_record_composite_primary_keys.html):
-
-```ruby
-class Book < ApplicationRecord
-  self.primary_key = [:author_id, :id]
-end
-
-Book.where(Book.primary_key => [[2, 1], [3, 1]])
-```
+This syntax can also be useful for querying models that use [composite primary keys](active_record_composite_primary_keys.html). See the [Composite Primary Keys guide](active_record_composite_primary_keys.html) for more details and examples.
 
 #### Range Conditions
 
@@ -1531,6 +1522,7 @@ If you already have an instance of your model, you can start a transaction and a
 
 ```ruby
 book = Book.first
+# Reload book with a lock before yielding.
 book.with_lock do |transaction|
   # This block is called within a transaction,
   # book is already locked.
@@ -1720,7 +1712,7 @@ have any reviews at all
 The `associated` and `missing` query methods let you select a set of records
 based on the presence or absence of an association.
 
-To use `where.associated`, begin with an empty `where` followed by `associated` with the association name: `where.associated`:
+To use `where.associated`, begin with an empty `where` followed by `associated` with the association name:
 
 ```ruby
 Customer.where.associated(:reviews)
@@ -1736,7 +1728,7 @@ SELECT customers.* FROM customers
 
 The SQL query will return all customers that have made at least one review.
 
-You can use `where.missing` to select records that do not have an association:
+`where.missing` is the opposite of `where.associated`. You can use `where.missing` to select records that do not have an association:
 
 ```ruby
 Customer.where.missing(:reviews)
@@ -1790,7 +1782,7 @@ The methods are:
 * [`preload`][]
 * [`eager_load`][]
 
-INFO: Prefer using `includes`, as it is a higher level method that will do either an `preload` or an `eager_load` depending on the situation.
+INFO: Prefer using [`includes`][], as it is a higher-level method that will use either [`preload`][] or [`eager_load`][] depending on the query.
 
 ### `includes`
 
@@ -2282,6 +2274,9 @@ applied for this particular query.
 ```ruby
 class Book < ApplicationRecord
   default_scope { where(out_of_print: false) }
+
+  scope :in_print, -> { where(out_of_print: false) }
+  scope :out_of_print, -> { where(out_of_print: true) }
 end
 ```
 
@@ -2298,7 +2293,7 @@ SELECT books.* FROM books
 `unscoped` can also accept a block. All queries inside the block will not use the previously set scopes.
 
 ```irb
-store(dev)> Book.unscoped { Book.out_of_print }
+store(dev)> Book.in_print.unscoped { Book.out_of_print }
 
 SELECT books.* FROM books WHERE books.out_of_print = true
 ```
@@ -2657,14 +2652,14 @@ not be available. For example:
 
 ```ruby
 class Customer < ApplicationRecord
-  def name
-    "I am #{first_name}"
+  def first_name
+    "I am #{super}"
   end
 end
 ```
 
 ```irb
-store(dev)> Customer.select(:first_name).map &:name
+store(dev)> Customer.select(:first_name).map(&:first_name)
 => ["I am David", "I am Jeremy", "I am Jose"]
 
 store(dev)> Customer.pluck(:first_name)

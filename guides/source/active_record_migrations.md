@@ -1785,7 +1785,8 @@ special comment like this:
 
  [Engines]: engines.html
 
-## Miscellaneous
+Miscellaneous
+-------------
 
 ### Using UUIDs instead of IDs for Primary Keys
 

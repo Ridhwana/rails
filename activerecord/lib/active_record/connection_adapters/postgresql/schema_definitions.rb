@@ -740,7 +740,7 @@ module ActiveRecord
         #
         # Example:
         #
-        #   create_table :post, id: :uuid do |t|
+        #   create_table :posts, id: :uuid do |t|
         #     t.datetime :published_at
         #     # By default, Active Record will set the data type of this column to `timestamp without time zone`.
         #   end

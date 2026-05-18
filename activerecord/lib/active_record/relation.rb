@@ -54,15 +54,15 @@ module ActiveRecord
     MULTI_VALUE_METHODS  = [:includes, :eager_load, :preload, :select, :group,
                             :order, :joins, :left_outer_joins, :references,
                             :extending, :unscope, :optimizer_hints, :annotate,
-                            :with]
+                            :with].freeze
 
     SINGLE_VALUE_METHODS = [:limit, :offset, :lock, :readonly, :reordering, :strict_loading,
-                            :reverse_order, :distinct, :create_with, :skip_query_cache]
+                            :reverse_order, :distinct, :create_with, :skip_query_cache].freeze
 
-    CLAUSE_METHODS = [:where, :having, :from]
-    INVALID_METHODS_FOR_UPDATE_AND_DELETE_ALL = [:distinct, :with, :with_recursive]
+    CLAUSE_METHODS = [:where, :having, :from].freeze
+    INVALID_METHODS_FOR_UPDATE_AND_DELETE_ALL = [:distinct, :with, :with_recursive].freeze
 
-    VALUE_METHODS = MULTI_VALUE_METHODS + SINGLE_VALUE_METHODS + CLAUSE_METHODS
+    VALUE_METHODS = (MULTI_VALUE_METHODS + SINGLE_VALUE_METHODS + CLAUSE_METHODS).freeze
 
     include Enumerable
     include FinderMethods, Calculations, SpawnMethods, QueryMethods, Batches, Explain, Delegation
@@ -307,7 +307,7 @@ module ActiveRecord
       end
     end
 
-    # Like #find_or_create_by, but calls {new}[rdoc-ref:Core#new]
+    # Like #find_or_create_by, but calls {new}[rdoc-ref:Core.new]
     # instead of {create}[rdoc-ref:Persistence::ClassMethods#create].
     def find_or_initialize_by(attributes, &block)
       find_by(attributes) || new(attributes, &block)
@@ -625,7 +625,7 @@ module ActiveRecord
       end
 
       model.with_connection do |c|
-        arel = eager_loading? ? apply_join_dependency.arel : arel(c)
+        arel = eager_loading? ? apply_join_dependency.arel : arel()
         arel.source.left = table
 
         key = if model.composite_primary_key?
@@ -782,6 +782,18 @@ module ActiveRecord
     #   You can also pass an SQL string if you need more control on the return values
     #   (for example, <tt>returning: Arel.sql("id, name as new_name")</tt>).
     #
+    # [:unique_by]
+    #   (PostgreSQL and SQLite only) By default rows are considered to be unique
+    #   by every unique index on the table.
+    #
+    #   To check uniqueness according to just one unique index pass <tt>:unique_by</tt>.
+    #
+    #   Unique indexes can be identified by columns or name:
+    #
+    #     unique_by: :isbn
+    #     unique_by: %i[ author_id name ]
+    #     unique_by: :index_books_on_isbn
+    #
     # [:record_timestamps]
     #   By default, automatic setting of timestamp columns is controlled by
     #   the model's <tt>record_timestamps</tt> config, matching typical
@@ -807,8 +819,8 @@ module ActiveRecord
     #     { id: 1, title: "Rework", author: "David" },
     #     { id: 1, title: "Eloquent Ruby", author: "Russ" }
     #   ])
-    def insert_all!(attributes, returning: nil, record_timestamps: nil)
-      InsertAll.execute(self, attributes, on_duplicate: :raise, returning: returning, record_timestamps: record_timestamps)
+    def insert_all!(attributes, returning: nil, unique_by: nil, record_timestamps: nil)
+      InsertAll.execute(self, attributes, on_duplicate: :raise, returning: returning, unique_by: unique_by, record_timestamps: record_timestamps)
     end
 
     # Updates or inserts (upserts) a single record into the database in a
@@ -869,7 +881,9 @@ module ActiveRecord
     # Active Record's schema_cache.
     #
     # [:on_duplicate]
-    #   Configure the SQL update sentence that will be used in case of conflict.
+    #   Configure the behavior that will be used in case of conflict. Use `:skip`
+    #   to ignore any conflicts or provide a safe SQL fragment wrapped with
+    #   `Arel.sql`.
     #
     #   NOTE: If you use this option you must provide all the columns you want to update
     #   by yourself.
@@ -1020,7 +1034,7 @@ module ActiveRecord
     #
     #   Post.where(person_id: 5).where(category: ['Something', 'Else']).delete_all
     #
-    # Both calls delete the affected posts all at once with a single DELETE statement.
+    # This call deletes the affected posts all at once with a single DELETE statement.
     # If you need to destroy dependent associations or call your <tt>before_*</tt> or
     # +after_destroy+ callbacks, use the #destroy_all method instead.
     #
@@ -1040,7 +1054,7 @@ module ActiveRecord
       end
 
       model.with_connection do |c|
-        arel = eager_loading? ? apply_join_dependency.arel : arel(c)
+        arel = eager_loading? ? apply_join_dependency.arel : arel()
         arel.source.left = table
 
         key = if model.composite_primary_key?
@@ -1233,7 +1247,7 @@ module ActiveRecord
         end
       else
         model.with_connection do |conn|
-          conn.unprepared_statement { conn.to_sql(arel(conn)) }
+          conn.unprepared_statement { conn.to_sql(arel) }
         end
       end
     end
@@ -1297,7 +1311,7 @@ module ActiveRecord
       readonly_value
     end
 
-    def values
+    def values # :nodoc:
       @values.dup
     end
 

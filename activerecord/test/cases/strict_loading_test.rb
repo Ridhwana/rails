@@ -17,6 +17,20 @@ require "models/pirate"
 class StrictLoadingTest < ActiveRecord::TestCase
   fixtures :developers, :developers_projects, :projects, :ships
 
+  def run(*)
+    with_debug_event_reporting do
+      super
+    end
+  end
+
+  setup do
+    ActiveSupport.colorize_logging = false
+  end
+
+  teardown do
+    ActiveSupport.colorize_logging = true
+  end
+
   def test_strict_loading!
     developer = Developer.first
     assert_not_predicate developer, :strict_loading?
@@ -218,8 +232,9 @@ class StrictLoadingTest < ActiveRecord::TestCase
     developer = Developer.first
     developer.strict_loading!
 
+
     assert_nothing_raised do
-      developer.audit_logs.build(message: message)
+      developer.audit_logs.build(message: "message")
     end
   end
 
@@ -340,6 +355,25 @@ class StrictLoadingTest < ActiveRecord::TestCase
     end
   end
 
+  def test_on_lazy_loading_and_strict_loading_with_pluck
+    with_strict_loading_by_default(Developer) do
+      dev = Developer.first
+
+      assert_raises ActiveRecord::StrictLoadingViolationError do
+        dev.audit_logs.pluck(:id)
+      end
+    end
+  end
+
+  def test_preload_audit_logs_are_strict_loading_with_pluck
+    with_strict_loading_by_default(Developer) do
+      dev = Developer.preload(:audit_logs).first
+
+      assert_nothing_raised do
+        dev.audit_logs.pluck(:id)
+      end
+    end
+  end
 
   def test_preload_audit_logs_are_strict_loading_because_parent_is_strict_loading
     developer = Developer.first
@@ -735,9 +769,9 @@ class StrictLoadingTest < ActiveRecord::TestCase
     end
 
     def assert_logged(message)
-      old_logger = ActiveRecord::Base.logger
+      old_logger = ActiveRecord::LogSubscriber.logger
       log = StringIO.new
-      ActiveRecord::Base.logger = Logger.new(log)
+      ActiveRecord::LogSubscriber.logger = Logger.new(log)
 
       begin
         yield
@@ -745,7 +779,7 @@ class StrictLoadingTest < ActiveRecord::TestCase
         log.rewind
         assert_match message, log.read
       ensure
-        ActiveRecord::Base.logger = old_logger
+        ActiveRecord::LogSubscriber.logger = old_logger
       end
     end
 end

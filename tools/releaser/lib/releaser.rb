@@ -19,7 +19,7 @@ class Releaser < Rake::TaskLib
     actionmailbox
     actiontext
     railties
-  )
+  ).freeze
 
   attr_reader :root, :version, :tag, :major, :minor, :tiny, :pre
 
@@ -67,7 +67,7 @@ class Releaser < Rake::TaskLib
 
         task push: :build do
           Dir.chdir(root) do
-            sh "gem push #{gem_path(framework)}#{gem_otp}"
+            sh "gem push #{gem_path(framework)}#{gem_otp(gem_path(framework))}"
 
             if File.exist?("#{framework}/package.json")
               Dir.chdir("#{framework}") do
@@ -299,7 +299,7 @@ class Releaser < Rake::TaskLib
       tasks/release.rb
       releaser.rb
       yarn.lock
-    )
+    ).freeze
     def tree_dirty?
       !`git status -s | grep -v '#{FILES_TO_IGNORE.join("\\|")}'`.strip.empty?
     end
@@ -311,11 +311,18 @@ class Releaser < Rake::TaskLib
     def npm_otp
       " --otp " + ykman("npmjs.com")
     rescue
-      " --provenance --access public"
+      " --access public"
     end
 
-    def gem_otp
+    def gem_otp(gem_path)
       " --otp " + ykman("rubygems.org")
+    rescue
+      attestation(gem_path)
+    end
+
+    def attestation(gem_path)
+      sh "sigstore-cli sign #{gem_path} --bundle #{gem_path}.sigstore.json"
+      " --attestation #{gem_path}.sigstore.json"
     rescue
       ""
     end

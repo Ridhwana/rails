@@ -16,7 +16,7 @@ module ActiveRecord
       module DeprecateSignedIdVerifierSecret
         def signed_id_verifier_secret=(secret)
           ActiveRecord.deprecator.warn(<<~MSG)
-            ActiveRecord::Base.signed_id_verifier_secret is deprecated and will be removed in the future.
+            ActiveRecord::Base.signed_id_verifier_secret is deprecated and will be removed in Rails 8.2.
 
             If the secret is model-specific, set Model.signed_id_verifier instead.
 
@@ -70,7 +70,7 @@ module ActiveRecord
 
         options = { on_rotation: on_rotation }.compact
         if id = signed_id_verifier.verified(signed_id, purpose: combine_signed_id_purposes(purpose), **options)
-          find_by primary_key => id
+          find_by(primary_key => [id])
         end
       end
 

@@ -11,7 +11,7 @@ require "active_support/core_ext/module/remove_method"
 class Time
   include DateAndTime::Calculations
 
-  COMMON_YEAR_DAYS_IN_MONTH = [nil, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  COMMON_YEAR_DAYS_IN_MONTH = [nil, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31].freeze
 
   class << self
     # Overriding case equality method so that it returns true for ActiveSupport::TimeWithZone instances
@@ -224,13 +224,6 @@ class Time
   # Returns a new Time representing the time a number of seconds since the instance time
   def since(seconds)
     self + seconds
-  rescue TypeError
-    result = to_datetime.since(seconds)
-    ActiveSupport.deprecator.warn(
-      "Passing an instance of #{seconds.class} to #{self.class}#since is deprecated. This behavior will raise " \
-      "a `TypeError` in Rails 8.1."
-    )
-    result
   end
   alias :in :since
 

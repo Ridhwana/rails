@@ -7,6 +7,7 @@ require "active_support/core_ext/hash/except"
 require "active_support/core_ext/module/anonymous"
 
 require "action_mailer/log_subscriber"
+require "action_mailer/structured_event_subscriber"
 require "action_mailer/rescuable"
 
 module ActionMailer
@@ -604,6 +605,16 @@ module ActionMailer
           builder.address = address
           builder.display_name = name.presence
         end.to_s
+      end
+
+      def mail(...)
+        MessageDelivery.new(self, :mail, ...)
+      end
+
+      def action_methods
+        methods = super
+        methods.add("mail") if self == ActionMailer::Base
+        methods
       end
 
     private

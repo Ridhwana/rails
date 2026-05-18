@@ -726,6 +726,10 @@ module ActiveRecord
       end
 
       def pluck(*column_names)
+        if proxy_association.violates_strict_loading?
+          Base.strict_loading_violation!(owner: proxy_association.owner.class, reflection: proxy_association.reflection)
+        end
+
         null_scope? ? scope.pluck(*column_names) : super
       end
 
@@ -1132,7 +1136,8 @@ module ActiveRecord
               association_name = @association.reflection.name
               ActiveRecord.deprecator.warn(<<~MSG)
                 Using #{method} on association \#{association_name} with unpersisted records
-                is deprecated. The unpersisted records will be lost after this operation.
+                is deprecated and will be removed in Rails 8.2.
+                The unpersisted records will be lost after this operation.
                 Please either persist your records first or store them separately before
                 calling #{method}.
               MSG

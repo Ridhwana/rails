@@ -466,7 +466,7 @@ db_namespace = namespace :db do
 
     desc "Load a database schema file (either db/schema.rb or db/structure.sql, depending on `ENV['SCHEMA_FORMAT']` or `config.active_record.schema_format`) into the database"
     task load: [:load_config, :check_protected_environments] do
-      ActiveRecord::Tasks::DatabaseTasks.load_schema_current(nil, ENV["SCHEMA"])
+      ActiveRecord::Tasks::DatabaseTasks.load_schema_current(ENV["SCHEMA_FORMAT"], ENV["SCHEMA"])
     end
 
     namespace :dump do
@@ -592,7 +592,8 @@ namespace :railties do
   namespace :install do
     # desc "Copy missing migrations from Railties (e.g. engines). You can specify Railties to use with FROM=railtie1,railtie2 and database to copy to with DATABASE=database."
     task migrations: :'db:load_config' do
-      to_load = ENV["FROM"].blank? ? :all : ENV["FROM"].split(",").map(&:strip)
+      from = ENV.delete("FROM")
+      to_load = from.blank? ? :all : from.split(",").map(&:strip)
       railties = {}
       Rails.application.migration_railties.each do |railtie|
         next unless to_load == :all || to_load.include?(railtie.railtie_name)

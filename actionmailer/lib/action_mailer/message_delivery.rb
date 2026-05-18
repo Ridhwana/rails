@@ -17,6 +17,8 @@ module ActionMailer
   #   Notifier.welcome(User.first).deliver_later # enqueue email delivery as a job through Active Job
   #   Notifier.welcome(User.first).message       # a Mail::Message object
   class MessageDelivery < Delegator
+    attr_reader :mailer_class, :action, :params, :args # :nodoc:
+
     def initialize(mailer_class, action, *args) # :nodoc:
       @mailer_class, @action, @args = mailer_class, action, args
 

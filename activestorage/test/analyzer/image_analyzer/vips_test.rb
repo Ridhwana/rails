@@ -26,6 +26,26 @@ class ActiveStorage::Analyzer::ImageAnalyzer::VipsTest < ActiveSupport::TestCase
     end
   end
 
+  test "analyzing a mirrored JPEG image" do
+    analyze_with_vips do
+      blob = create_file_blob(filename: "racecar_mirrored.jpg", content_type: "image/jpeg")
+      metadata = extract_metadata_from(blob)
+
+      assert_equal 4104, metadata[:width]
+      assert_equal 2736, metadata[:height]
+    end
+  end
+
+  test "analyzing a mirrored and rotated JPEG image" do
+    analyze_with_vips do
+      blob = create_file_blob(filename: "racecar_mirrored_rotated.jpg", content_type: "image/jpeg")
+      metadata = extract_metadata_from(blob)
+
+      assert_equal 2736, metadata[:width]
+      assert_equal 4104, metadata[:height]
+    end
+  end
+
   test "analyzing an SVG image without an XML declaration" do
     analyze_with_vips do
       blob = create_file_blob(filename: "icon.svg", content_type: "image/svg+xml")
@@ -58,14 +78,31 @@ class ActiveStorage::Analyzer::ImageAnalyzer::VipsTest < ActiveSupport::TestCase
     end
   end
 
+  test "when ruby-vips is not installed" do
+    stub_const(ActiveStorage, :VIPS_AVAILABLE, false) do
+      blob = create_file_blob(filename: "racecar.jpg", content_type: "image/jpeg")
+
+      output = StringIO.new
+      logger = ActiveSupport::Logger.new(output)
+
+      ActiveStorage.with(logger: logger) do
+        analyze_with_vips do
+          blob.analyze
+        end
+      end
+
+      assert_includes output.string, "Skipping image analysis because the ruby-vips gem isn't installed"
+    end
+  end
+
   private
     def analyze_with_vips
-      previous_analyzers, ActiveStorage.analyzers = ActiveStorage.analyzers, [ActiveStorage::Analyzer::ImageAnalyzer::Vips]
+      previous_processor, ActiveStorage.variant_processor = ActiveStorage.variant_processor, :vips
 
       yield
     rescue LoadError
       ENV["BUILDKITE"] ? raise : skip("Variant processor vips is not installed")
     ensure
-      ActiveStorage.analyzers = previous_analyzers
+      ActiveStorage.variant_processor = previous_processor
     end
 end

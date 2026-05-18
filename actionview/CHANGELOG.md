@@ -1,81 +1,96 @@
-*   Enable configuring the strategy for tracking dependencies between Action
-    View templates.
-
-    The existing `:regex` strategy is kept as the default, but with
-    `load_defaults 8.1` the strategy will be `:ruby` (using a real Ruby parser).
-
-    *Hartley McGuire*
-
-*   Introduce `relative_time_in_words` helper
+*   Pass render options and block to calls to `#render_in`
 
     ```ruby
-    relative_time_in_words(3.minutes.from_now) # => "in 3 minutes"
-    relative_time_in_words(3.minutes.ago) # => "3 minutes ago"
-    relative_time_in_words(10.seconds.ago, include_seconds: true) # => "less than 10 seconds ago"
+    class Greeting
+      def render_in(view_context, **)
+        if block_given?
+          view_context.render(html: yield)
+        else
+          view_context.render(inline: <<~ERB.strip, **)
+            Hello <%= local_assigns[:name] || "World" %>
+          ERB
+        end
+      end
+    end
+
+    render(Greeting.new)                                        # => "Hello, World"
+    render(Greeting.new, name: "Local")                         # => "Hello, Local"
+    render(renderable: Greeting.new, locals: { name: "Local" }) # => "Hello, Local"
+    render(Greeting.new) { "Hello, Block" }                     # => "Hello, Block"
     ```
 
-    *Matheus Richard*
+    *Sean Doyle*
 
-*   Make `nonce: false` remove the nonce attribute from `javascript_tag`, `javascript_include_tag`, and `stylesheet_link_tag`.
+*   Add `f.datalist` to `FormBuilder`
 
-    *francktrouillez*
+    Example:
 
-*   Add `dom_target` helper to create `dom_id`-like strings from an unlimited
-    number of objects.
+        <%= form_with model: @post do |f| %>
+           <%# Wire the input to the datalist using the same derived id: %>
+           <%= f.text_field :country, list: f.field_id(:country, :datalist) %>
+           <%= f.datalist  :country, ["Argentina", "Brazil", "Chile"] %>
+        <% end %>
 
-    *Ben Sheldon*
+          Produces:
+          <input list="post_country_datalist" type="text"
+                 name="post[country]" id="post_country" />
+          <datalist id="post_country_datalist">
+            <option value="Argentina">Argentina</option>
+            <option value="Brazil">Brazil</option>
+            <option value="Chile">Chile</option>
+          </datalist>
 
-*   Respect `html_options[:form]` when `collection_checkboxes` generates the
-    hidden `<input>`.
+      *Tahsin Hasan*
 
-    *Riccardo Odone*
+*   Add `datalist_tag` to create `datalist` form elements.
 
-*   Layouts have access to local variables passed to `render`.
+    Example:
 
-    This fixes #31680 which was a regression in Rails 5.1.
+        datalist_tag('countries_datalist', ['Argentina', ['Brazil', { class: 'brazilian_option' }],
+                     ['Chile', 'CL', { disabled: true }]], { class: 'sa-countries-sample' })
+        => <datalist id="countries_datalist" class="sa-countries-sample">
+             <option value="Argentina">Argentina</option>
+             <option value="Brazil" class="brazilian_option">Brazil</option>
+             <option value="CL" disabled="disabled">Chile</option>
+           </datalist>
+
+    *Willian Gustavo Veiga*
+
+*   Render `Hash` and keyword options as dasherized HTML attributes
+
+    ```ruby
+    tag.button "POST to /clicked", hx: { post: "/clicked", swap: :outerHTML, data: { json: true } }
+
+    # => <button hx-post="/clicked" hx-swap="outerHTML" hx-data="{&quot;json&quot;:true}">POST to /clicked</button>
+    ```
+
+    *Sean Doyle*
+
+*   `ViewReloader#deactivate` removes the `file_system_resolver_hooks` callback
+    so forked processes that clear reloaders no longer trigger filesystem scans
+    on every `prepend_view_path`.
+
+    *Dave Ariens*
+
+*   Defer the View watcher build until view paths are actually registered.
+
+    *Hugo Vacher*
+
+*   Skip blank attribute names in tag helpers to avoid generating invalid HTML.
 
     *Mike Dalessio*
 
-*   Argument errors related to strict locals in templates now raise an
-    `ActionView::StrictLocalsError`, and all other argument errors are reraised as-is.
+*   Fix tag parameter content being overwritten instead of combined with tag block content.
+    Before `tag.div("Hello ") { "World" }` would just return `<div>World</div>`, now it returns `<div>Hello World</div>`.
 
-    Previously, any `ArgumentError` raised during template rendering was swallowed during strict
-    local error handling, so that an `ArgumentError` unrelated to strict locals (e.g., a helper
-    method invoked with incorrect arguments) would be replaced by a similar `ArgumentError` with an
-    unrelated backtrace, making it difficult to debug templates.
+    *DHH*
 
-    Now, any `ArgumentError` unrelated to strict locals is reraised, preserving the original
-    backtrace for developers.
+*   Add ability to pass a block when rendering collection. The block will be executed for each rendered element in the collection.
 
-    Also note that `ActionView::StrictLocalsError` is a subclass of `ArgumentError`, so any existing
-    code that rescues `ArgumentError` will continue to work.
+    *Vincent Robert*
 
-    Fixes #52227.
+*   Add `key:` and `expires_in:` options under `cached:` to `render` when used with `collection:`
 
-    *Mike Dalessio*
+    *Jarrett Lusso*
 
-*   Improve error highlighting of multi-line methods in ERB templates or
-    templates where the error occurs within a do-end block.
-
-    *Martin Emde*
-
-*   Fix a crash in ERB template error highlighting when the error occurs on a
-    line in the compiled template that is past the end of the source template.
-
-    *Martin Emde*
-
-*   Improve reliability of ERB template error highlighting.
-    Fix infinite loops and crashes in highlighting and
-    improve tolerance for alternate ERB handlers.
-
-    *Martin Emde*
-
-*   Allow `hidden_field` and `hidden_field_tag` to accept a custom autocomplete value.
-
-    *brendon*
-
-*   Add a new configuration `content_security_policy_nonce_auto` for automatically adding a nonce to the tags affected by the directives specified by the `content_security_policy_nonce_directives` configuration option.
-
-    *francktrouillez*
-
-Please check [8-0-stable](https://github.com/rails/rails/blob/8-0-stable/actionview/CHANGELOG.md) for previous changes.
+Please check [8-1-stable](https://github.com/rails/rails/blob/8-1-stable/actionview/CHANGELOG.md) for previous changes.

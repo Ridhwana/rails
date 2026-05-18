@@ -68,12 +68,25 @@ module ActiveSupport
           use_temporary_local_cache(LocalStore.new, &block)
         end
 
+        # Set a new local cache.
+        def new_local_cache
+          LocalCacheRegistry.set_cache_for(local_cache_key, LocalStore.new)
+        end
+
+        # Unset the current local cache.
+        def unset_local_cache
+          LocalCacheRegistry.set_cache_for(local_cache_key, nil)
+        end
+
+        # The current local cache.
+        def local_cache
+          LocalCacheRegistry.cache_for(local_cache_key)
+        end
+
         # Middleware class can be inserted as a Rack handler to be local cache for the
         # duration of request.
         def middleware
-          @middleware ||= Middleware.new(
-            "ActiveSupport::Cache::Strategy::LocalCache",
-            local_cache_key)
+          @middleware ||= Middleware.new("ActiveSupport::Cache::Strategy::LocalCache", self)
         end
 
         def clear(options = nil) # :nodoc:
@@ -145,13 +158,19 @@ module ActiveSupport
         private
           def read_serialized_entry(key, raw: false, **options)
             if cache = local_cache
-              hit = true
-              entry = cache.fetch_entry(key) do
-                hit = false
-                super
+              if options[:delete]
+                entry = super
+                cache.delete_entry(key)
+                entry
+              else
+                hit = true
+                entry = cache.fetch_entry(key) do
+                  hit = false
+                  super
+                end
+                options[:event][:store] = cache.class.name if hit && options[:event]
+                entry
               end
-              options[:event][:store] = cache.class.name if hit && options[:event]
-              entry
             else
               super
             end
@@ -212,10 +231,6 @@ module ActiveSupport
 
           def local_cache_key
             @local_cache_key ||= "#{self.class.name.underscore}_local_cache_#{object_id}".gsub(/[\/-]/, "_").to_sym
-          end
-
-          def local_cache
-            LocalCacheRegistry.cache_for(local_cache_key)
           end
 
           def bypass_local_cache(&block)

@@ -5,6 +5,8 @@ require "cases/helper"
 module ActiveRecord
   module ConnectionAdapters
     class ReaperTest < ActiveRecord::TestCase
+      include ActiveRecord::TestCase::WaitForTestHelper
+
       class FakePool
         attr_reader :reaped
         attr_reader :flushed
@@ -29,6 +31,26 @@ module ActiveRecord
         def discarded?
           @discarded
         end
+
+        def prepopulate
+        end
+
+        def preconnect
+        end
+
+        def keep_alive
+        end
+
+        def retire_old_connections
+        end
+
+        def maintainable?
+          !discarded? && !flushed && !reaped
+        end
+
+        def reaper_lock
+          yield
+        end
       end
 
       # A reaper with nil time should never reap connections
@@ -48,9 +70,7 @@ module ActiveRecord
 
         reaper = ConnectionPool::Reaper.new(fp, 0.0001)
         reaper.run
-        until fp.flushed
-          Thread.pass
-        end
+        wait_for(message: "fake pool was not flushed") { fp.flushed }
         assert fp.reaped
         assert fp.flushed
       ensure
@@ -172,9 +192,7 @@ module ActiveRecord
         ConnectionPool::Reaper.new(discarded_pool, frequency).run
         ConnectionPool::Reaper.new(pool, frequency).run
 
-        until pool.flushed
-          Thread.pass
-        end
+        wait_for(message: "pool was not flushed") { pool.flushed }
 
         assert_not discarded_pool.reaped
         assert pool.reaped
@@ -195,7 +213,7 @@ module ActiveRecord
 
           child = Thread.new do
             conn = pool.checkout
-            conn.query("SELECT 1") # ensure connected
+            conn.select_rows("SELECT 1") # ensure connected
             event.set
             Thread.stop
           end
@@ -205,10 +223,7 @@ module ActiveRecord
         end
 
         def wait_for_conn_idle(conn, timeout = 5)
-          start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          while conn.in_use? && Process.clock_gettime(Process::CLOCK_MONOTONIC) - start < timeout
-            Thread.pass
-          end
+          wait_for(message: "connection still in use", timeout: timeout) { !conn.in_use? }
         end
     end
   end

@@ -327,11 +327,14 @@ class EachTest < ActiveRecord::TestCase
   end
 
   def test_in_batches_has_attribute_readers
-    enumerator = Post.no_comments.in_batches(of: 2, start: 42, finish: 84)
+    enumerator = Post.no_comments.in_batches(of: 2, start: 42, finish: 84, use_ranges: true)
     assert_equal Post.no_comments, enumerator.relation
     assert_equal 2, enumerator.batch_size
     assert_equal 42, enumerator.start
     assert_equal 84, enumerator.finish
+    assert_equal "id", enumerator.cursor
+    assert_equal :asc, enumerator.order
+    assert_equal true, enumerator.use_ranges
   end
 
   def test_in_batches_should_yield_relation_if_block_given
@@ -453,36 +456,6 @@ class EachTest < ActiveRecord::TestCase
     Post.in_batches(of: 1, load: true) do |relation|
       assert_predicate relation, :loaded?
     end
-  end
-
-  def test_in_loaded_batches_preserves_order_within_batches
-    expected_posts = Post.order(id: :desc).to_a
-    posts = []
-
-    Post.in_batches(of: 2, load: true, order: :desc) do |relation|
-      posts.concat(relation.where("1 = 1"))
-    end
-    assert_equal expected_posts, posts
-  end
-
-  def test_in_range_batches_preserves_order_within_batches
-    expected_posts = Post.order(id: :desc).to_a
-    posts = []
-
-    Post.in_batches(of: 2, order: :desc, use_ranges: true) do |relation|
-      posts.concat(relation)
-    end
-    assert_equal expected_posts, posts
-  end
-
-  def test_in_scoped_batches_preserves_order_within_batches
-    expected_posts = Post.order(id: :desc).to_a
-    posts = []
-
-    Post.where("id > 0").in_batches(of: 2, order: :desc) do |relation|
-      posts.concat(relation)
-    end
-    assert_equal expected_posts, posts
   end
 
   def test_in_batches_if_not_loaded_executes_more_queries
@@ -692,6 +665,13 @@ class EachTest < ActiveRecord::TestCase
     end
   end
 
+  def test_in_batches_no_subqueries_for_whole_tables_batching
+    quoted_posts_id = Regexp.escape(quote_table_name("posts.id"))
+    assert_queries_match(/DELETE FROM #{Regexp.escape(quote_table_name("posts"))} WHERE #{quoted_posts_id} > .+ AND #{quoted_posts_id} <=/i) do
+      Post.in_batches(of: 2).delete_all
+    end
+  end
+
   def test_in_batches_shouldnt_execute_query_unless_needed
     assert_queries_count(3) do
       Post.in_batches(of: @total) { |relation| assert_kind_of ActiveRecord::Relation, relation }
@@ -699,6 +679,28 @@ class EachTest < ActiveRecord::TestCase
 
     assert_queries_count(2) do
       Post.in_batches(of: @total + 1) { |relation| assert_kind_of ActiveRecord::Relation, relation }
+    end
+  end
+
+  def test_in_batches_should_unscope_cursor_after_pluck
+    all_ids = Post.limit(2).pluck(:id)
+    found_ids = []
+    # only a single clause on id (i.e. not 'id IN (?,?) AND id = ?', but only 'id = ?')
+    assert_queries_match(/WHERE #{Regexp.escape(quote_table_name("posts.id"))} = \S+ LIMIT/) do
+      Post.where(id: all_ids).in_batches(of: 1) do |relation|
+        found_ids << relation.pick(:id)
+      end
+    end
+    assert_equal all_ids.sort, found_ids
+  end
+
+  def test_in_batches_loaded_should_unscope_cursor_after_pluck
+    all_ids = Post.limit(2).pluck(:id)
+    # only a single clause on id (i.e. not 'id IN (?,?) AND id = ?', but only 'id = ?')
+    assert_queries_match(/WHERE #{Regexp.escape(quote_table_name("posts.id"))} = \S+$/) do
+      Post.where(id: all_ids).in_batches(of: 1, load: true) do |relation|
+        relation.delete_all
+      end
     end
   end
 
@@ -927,6 +929,18 @@ class EachTest < ActiveRecord::TestCase
       total      = 0
 
       Post.limit(limit).in_batches(of: batch_size, load: load) do |batch|
+        total += batch.count
+      end
+
+      assert_equal limit, total
+    end
+
+    test "in_batches should return limit records when limit is greater than batch size with use_ranges and load is #{load}" do
+      limit = 5
+      batch_size = 3
+      total = 0
+
+      Post.limit(limit).in_batches(of: batch_size, load: load, use_ranges: true) do |batch|
         total += batch.count
       end
 

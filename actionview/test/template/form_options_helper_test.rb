@@ -2,6 +2,7 @@
 
 require "abstract_unit"
 require "active_support/core_ext/enumerable"
+require "active_support/core_ext/object/with"
 
 class Map < Hash
   def category
@@ -32,6 +33,7 @@ class FormOptionsHelperTest < ActionView::TestCase
     Country     = Struct.new("Country", :country_id, :country_name)
     Album       = Struct.new("Album", :id, :title, :genre)
     Digest      = Struct.new("Digest", :send_day)
+    Pic         = Struct.new("Pic", :country)
   end
 
   class Firm
@@ -752,6 +754,24 @@ class FormOptionsHelperTest < ActionView::TestCase
       "<input disabled=\"disabled\"type=\"hidden\" name=\"post[category][]\" value=\"\" autocomplete=\"off\"/><select multiple=\"multiple\" disabled=\"disabled\" id=\"post_category\" name=\"post[category][]\"></select>",
       output_buffer
     )
+  end
+
+  def test_select_with_multiple_and_include_hidden
+    output_buffer = select(:post, :category, "", { include_hidden: true }, { multiple: true })
+    assert_dom_equal(
+      "<input name=\"post[category][]\" type=\"hidden\" value=\"\" autocomplete=\"off\" /><select multiple=\"multiple\" name=\"post[category][]\" id=\"post_category\"></select>",
+      output_buffer
+    )
+  end
+
+  def test_select_with_multiple_and_include_hidden_omits_autocomplete
+    ActionView::Base.with(remove_hidden_field_autocomplete: true) do
+      output_buffer = select(:post, :category, "", { include_hidden: true }, { multiple: true })
+      assert_dom_equal(
+        "<input name=\"post[category][]\" type=\"hidden\" value=\"\" /><select multiple=\"multiple\" name=\"post[category][]\" id=\"post_category\"></select>",
+        output_buffer
+      )
+    end
   end
 
   def test_select_with_blank
@@ -1627,6 +1647,98 @@ class FormOptionsHelperTest < ActionView::TestCase
       "<select name=\"digest[send_day]\" id=\"digest_send_day\"><option selected=\"selected\" value=\"Monday\">Monday</option>\n<option value=\"Tuesday\">Tuesday</option>\n<option value=\"Wednesday\">Wednesday</option>\n<option value=\"Thursday\">Thursday</option>\n<option value=\"Friday\">Friday</option>\n<option value=\"Saturday\">Saturday</option>\n<option value=\"Sunday\">Sunday</option></select>",
       output_buffer
     )
+  end
+
+  def test_datalist_with_plain_array
+    @post = Post.new
+
+    actual = fields_for(:post, @post) do |f|
+      f.datalist :country, %w[Argentina Brazil Chile]
+    end
+
+    expected = %(<datalist id="post_country_datalist">) +
+               %(<option value="Argentina">Argentina</option>) +
+               %(<option value="Brazil">Brazil</option>) +
+               %(<option value="Chile">Chile</option>) +
+               %(</datalist>)
+
+    assert_dom_equal expected, actual
+  end
+
+  def test_datalist_with_label_value_pairs
+    @post = Post.new
+
+    actual = fields_for(:post, @post) do |f|
+      f.datalist :country_code, [["Argentina", "AR"], ["Brazil", "BR"]]
+    end
+
+    expected = %(<datalist id="post_country_code_datalist">) +
+               %(<option value="AR">Argentina</option>) +
+               %(<option value="BR">Brazil</option>) +
+               %(</datalist>)
+
+    assert_dom_equal expected, actual
+  end
+
+  def test_datalist_id_matches_field_id_helper
+    @post = Post.new
+
+    datalist_html = fields_for(:post, @post) do |f|
+      f.datalist :country, %w[AR BR]
+    end
+
+    assert_match(/id="post_country_datalist"/, datalist_html)
+  end
+
+  def test_datalist_passes_html_options
+    @post = Post.new
+
+    actual = fields_for(:post, @post) do |f|
+      f.datalist :tag, %w[ruby rails], class: "suggestions", "data-remote" => "true"
+    end
+
+    assert_match(/class="suggestions"/, actual)
+    assert_match(/data-remote="true"/, actual)
+    assert_match(/id="post_tag_datalist"/, actual)
+  end
+
+  def test_datalist_with_collection_for_select
+    @post = Post.new
+    countries = [Country.new("AR", "Argentina"),
+                 Country.new("BR", "Brazil")]
+
+    actual = fields_for(:post, @post) do |f|
+      f.datalist :country,
+                 options_from_collection_for_select(countries, :country_id, :country_name)
+    end
+
+    assert_match(/id="post_country_datalist"/, actual)
+    assert_match(/<option value="AR">Argentina<\/option>/, actual)
+    assert_match(/<option value="BR">Brazil<\/option>/, actual)
+  end
+
+  def test_datalist_with_nil_choices
+    @post = Post.new
+
+    actual = fields_for(:post, @post) do |f|
+      f.datalist :country, nil
+    end
+
+    assert_dom_equal %(<datalist id="post_country_datalist"></datalist>), actual
+  end
+
+  def test_text_field_and_datalist_are_paired_correctly
+    @pic = Pic.new
+
+    output = fields_for(:pic, @pic) do |f|
+      safe_join([
+        f.text_field(:country, list: f.field_id(:country, :datalist)),
+        f.datalist(:country, %w[AR BR])
+      ])
+    end
+
+    assert_match(/list="pic_country_datalist"/, output)
+    assert_match(/id="pic_country_datalist"/, output)
   end
 
   private

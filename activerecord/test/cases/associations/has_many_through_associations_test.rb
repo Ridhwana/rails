@@ -1066,7 +1066,7 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
     author = authors(:david)
     ids = [categories(:general).name, "Unknown"]
     e = assert_raises(ActiveRecord::RecordNotFound) { author.essay_category_ids = ids }
-    msg = "Couldn't find all Categories with 'name': (General, Unknown) (found 1 results, but was looking for 2). Couldn't find Category with name Unknown."
+    msg = %{Couldn't find all Categories with 'name': ("General", "Unknown") (found 1 results, but was looking for 2). Couldn't find Category with name "Unknown".}
     assert_equal msg, e.message
   end
 
@@ -1703,6 +1703,17 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
     chapter = order.chapters.build
 
     assert_equal(chapter.book, book)
+  end
+
+  def test_ids_reader_with_composite_primary_key_on_source
+    blog = Sharded::Blog.create!
+    post = Sharded::BlogPost.create!(blog_id: blog.id)
+    comment = Sharded::Comment.create!(blog_id: blog.id, blog_post_id: post.id)
+
+    ids = blog.comments_via_post_ids
+
+    assert_kind_of Array, ids
+    assert_equal [[comment.blog_id, comment.id]], ids
   end
 
   private

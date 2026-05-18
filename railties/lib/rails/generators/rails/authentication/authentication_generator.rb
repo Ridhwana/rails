@@ -15,6 +15,8 @@ module Rails
       end
 
       def create_authentication_files
+        @user_model_exists = File.exist?(File.expand_path("app/models/user.rb", destination_root))
+
         template "app/models/session.rb"
         template "app/models/user.rb"
         template "app/models/current.rb"
@@ -30,11 +32,7 @@ module Rails
 
           template "app/views/passwords_mailer/reset.html.erb"
           template "app/views/passwords_mailer/reset.text.erb"
-
-          template "test/mailers/previews/passwords_mailer_preview.rb"
         end
-
-        template "test/test_helpers/session_test_helper.rb"
       end
 
       def configure_application_controller
@@ -42,8 +40,8 @@ module Rails
       end
 
       def configure_authentication_routes
-        route "resources :passwords, param: :token"
-        route "resource :session"
+        route "resources :passwords, param: :token, only: [:new, :create, :edit, :update]"
+        route "resource :session, only: [:new, :create, :destroy]"
       end
 
       def enable_bcrypt
@@ -56,13 +54,10 @@ module Rails
       end
 
       def add_migrations
-        generate "migration", "CreateUsers", "email_address:string!:uniq password_digest:string!", "--force"
+        unless @user_model_exists
+          generate "migration", "CreateUsers", "email_address:string!:uniq password_digest:string!", "--force"
+        end
         generate "migration", "CreateSessions", "user:references ip_address:string user_agent:string", "--force"
-      end
-
-      def configure_test_helper
-        inject_into_file "test/test_helper.rb", "require_relative \"test_helpers/session_test_helper\"\n", after: "require \"rails/test_help\"\n"
-        inject_into_class "test/test_helper.rb", "TestCase", "    include SessionTestHelper\n"
       end
 
       hook_for :test_framework

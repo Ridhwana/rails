@@ -232,7 +232,7 @@
       url: tuning_performance_for_deployment.html
       description: This guide covers performance and concurrency configuration for deploying your production Ruby on Rails application.
     -
-      name: "Caching with Rails: An Overview"
+      name: "Caching with Rails"
       url: caching_with_rails.html
       description: This guide is an introduction to speeding up your Rails application with caching.
     -
@@ -258,7 +258,6 @@
       description: This guide covers using multiple databases in your application.
     -
       name: Active Record Encryption
-      work_in_progress: true
       url: active_record_encryption.html
       description: This guide covers encrypting your database information using Active Record.
     -
@@ -271,7 +270,6 @@
   documents:
     -
       name: The Basics of Creating Rails Plugins
-      work_in_progress: true
       url: plugins.html
       description: This guide covers how to build a plugin to extend the functionality of Rails.
     -
@@ -294,7 +292,6 @@
       name: Threading and Code Execution in Rails
       url: threading_and_code_execution.html
       description: This guide describes the considerations needed and tools available when working directly with concurrency in a Rails application.
-      work_in_progress: true
 -
   name: Contributing
   documents:
@@ -330,10 +327,14 @@
         This guide provides steps to be followed when you upgrade your
         applications to a newer version of Ruby on Rails.
     -
-      name: Version 8.1 - ?
+      name: Version 8.2 - ?
+      url: 8_2_release_notes.html
+      description: Release notes for Rails 8.2.
+      work_in_progress: true
+    -
+      name: Version 8.1 - October 2025
       url: 8_1_release_notes.html
       description: Release notes for Rails 8.1.
-      work_in_progress: true
     -
       name: Version 8.0 - November 2024
       url: 8_0_release_notes.html

@@ -657,14 +657,14 @@ module ActionDispatch
         if route.segment_keys.include?(:controller)
           ActionDispatch.deprecator.warn(<<-MSG.squish)
             Using a dynamic :controller segment in a route is deprecated and
-            will be removed in Rails 8.1.
+            will be removed in Rails 9.0.
           MSG
         end
 
         if route.segment_keys.include?(:action)
           ActionDispatch.deprecator.warn(<<-MSG.squish)
             Using a dynamic :action segment in a route is deprecated and
-            will be removed in Rails 8.1.
+            will be removed in Rails 9.0.
           MSG
         end
 
@@ -837,7 +837,7 @@ module ActionDispatch
 
       RESERVED_OPTIONS = [:host, :protocol, :port, :subdomain, :domain, :tld_length,
                           :trailing_slash, :anchor, :params, :only_path, :script_name,
-                          :original_script_name]
+                          :original_script_name].freeze
 
       def optimize_routes_generation?
         default_url_options.empty?

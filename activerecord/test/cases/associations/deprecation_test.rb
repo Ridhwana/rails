@@ -34,7 +34,7 @@ module AssociationDeprecationTest
     end
 
     def assert_message(message, line)
-      re = /The association DATS::Car#deprecated_tyres is deprecated, the method deprecated_tyres was invoked \(#{__FILE__}:#{line}:in/
+      re = /The association DATS::Car#deprecated_tires is deprecated, the method deprecated_tires was invoked \(#{__FILE__}:#{line}:in/
       assert_match re, message
     end
   end
@@ -123,7 +123,7 @@ module AssociationDeprecationTest
     end
 
     test "report warns in :warn mode" do
-      DATS::Car.new.deprecated_tyres
+      DATS::Car.new.deprecated_tires
       assert_message @io.string, __LINE__ - 1
     end
   end
@@ -146,7 +146,7 @@ module AssociationDeprecationTest
 
     test "report warns in :warn mode" do
       line = __LINE__ + 1
-      DATS::Car.new.deprecated_tyres
+      DATS::Car.new.deprecated_tires
 
       assert_message @io.string, line
       assert_includes @io.string, "\t#{__FILE__}:#{line}:in"
@@ -168,7 +168,7 @@ module AssociationDeprecationTest
     end
 
     test "report does not assume the logger is present" do
-      assert_nothing_raised { DATS::Car.new.deprecated_tyres }
+      assert_nothing_raised { DATS::Car.new.deprecated_tires }
     end
   end
 
@@ -179,7 +179,7 @@ module AssociationDeprecationTest
     end
 
     test "report raises an error in :raise mode" do
-      error = assert_raises(ActiveRecord::DeprecatedAssociationError) { DATS::Car.new.deprecated_tyres }
+      error = assert_raises(ActiveRecord::DeprecatedAssociationError) { DATS::Car.new.deprecated_tires }
       assert_message error.message, __LINE__ - 1
     end
   end
@@ -193,7 +193,7 @@ module AssociationDeprecationTest
 
     test "report raises an error in :raise mode" do
       line = __LINE__ + 1
-      error = assert_raises(ActiveRecord::DeprecatedAssociationError) { DATS::Car.new.deprecated_tyres }
+      error = assert_raises(ActiveRecord::DeprecatedAssociationError) { DATS::Car.new.deprecated_tires }
 
       assert_message error.message, line
       assert_includes error.backtrace.last, "#{__FILE__}:#{line}:in"
@@ -213,30 +213,24 @@ module AssociationDeprecationTest
     end
 
     def assert_user_facing_reflection(model, association)
-      payloads = []
-      callback = ->(event) { payloads << event.payload }
-
-      ActiveSupport::Notifications.subscribed(callback, "deprecated_association.active_record") do
+      events = capture_notifications("deprecated_association.active_record") do
         model.new.send(association)
       end
 
-      assert_equal 1, payloads.size
-      assert_equal model.reflect_on_association(association), payloads[0][:reflection]
+      assert_equal 1, events.size
+      assert_equal model.reflect_on_association(association), events[0].payload[:reflection]
     end
 
     test "report publishes an Active Support notification in :notify mode" do
-      payloads = []
-      callback = ->(event) { payloads << event.payload }
-
       line = __LINE__ + 2
-      ActiveSupport::Notifications.subscribed(callback, "deprecated_association.active_record") do
-        DATS::Car.new.deprecated_tyres
+      events = capture_notifications("deprecated_association.active_record") do
+        DATS::Car.new.deprecated_tires
       end
 
-      assert_equal 1, payloads.size
-      payload = payloads.first
+      assert_equal 1, events.size
+      payload = events.first.payload
 
-      assert_equal DATS::Car.reflect_on_association(:deprecated_tyres), payload[:reflection]
+      assert_equal DATS::Car.reflect_on_association(:deprecated_tires), payload[:reflection]
 
       assert_message payload[:message], line
 

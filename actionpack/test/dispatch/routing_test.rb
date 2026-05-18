@@ -1549,20 +1549,11 @@ class TestRoutingMapper < ActionDispatch::IntegrationTest
   end
 
   def test_match_with_many_paths_containing_a_slash
-    assert_deprecated(ActionDispatch.deprecator) do
+    assert_raises(ArgumentError) do
       draw do
         get "get/first", "get/second", "get/third", to: "get#show"
       end
     end
-
-    get "/get/first"
-    assert_equal "get#show", @response.body
-
-    get "/get/second"
-    assert_equal "get#show", @response.body
-
-    get "/get/third"
-    assert_equal "get#show", @response.body
   end
 
   def test_match_shorthand_with_no_scope
@@ -1588,19 +1579,13 @@ class TestRoutingMapper < ActionDispatch::IntegrationTest
   end
 
   def test_match_shorthand_with_multiple_paths_inside_namespace
-    assert_deprecated(ActionDispatch.deprecator) do
+    assert_raises(ArgumentError) do
       draw do
         namespace :proposals do
           put "activate", "inactivate"
         end
       end
     end
-
-    put "/proposals/activate"
-    assert_equal "proposals#activate", @response.body
-
-    put "/proposals/inactivate"
-    assert_equal "proposals#inactivate", @response.body
   end
 
   def test_match_shorthand_inside_namespace_with_controller
@@ -3218,6 +3203,36 @@ class TestRoutingMapper < ActionDispatch::IntegrationTest
     assert_equal "italians#painters", @response.body
   end
 
+  def test_mount_with_hash_constraints
+    draw do
+      mount lambda { |env| [200, {}, ["mounted"]] },
+        at: "/app",
+        constraints: { subdomain: "admin" }
+    end
+
+    get "http://admin.example.com/app"
+    assert_equal 200, status
+    assert_equal "mounted", @response.body
+
+    get "http://www.example.com/app"
+    assert_equal 404, status
+  end
+
+  def test_mount_inside_hash_constraints
+    draw do
+      constraints subdomain: "admin" do
+        mount lambda { |env| [200, {}, ["mounted"]] }, at: "/app"
+      end
+    end
+
+    get "http://admin.example.com/app"
+    assert_equal 200, status
+    assert_equal "mounted", @response.body
+
+    get "http://www.example.com/app"
+    assert_equal 404, status
+  end
+
   def test_custom_resource_actions_defined_using_string
     draw do
       resources :customers do
@@ -4198,14 +4213,14 @@ class TestDefaultScope < ActionDispatch::IntegrationTest
 end
 
 class TestHttpMethods < ActionDispatch::IntegrationTest
-  RFC2616 = %w(OPTIONS GET HEAD POST PUT DELETE TRACE CONNECT)
-  RFC2518 = %w(PROPFIND PROPPATCH MKCOL COPY MOVE LOCK UNLOCK)
-  RFC3253 = %w(VERSION-CONTROL REPORT CHECKOUT CHECKIN UNCHECKOUT MKWORKSPACE UPDATE LABEL MERGE BASELINE-CONTROL MKACTIVITY)
-  RFC3648 = %w(ORDERPATCH)
-  RFC3744 = %w(ACL)
-  RFC5323 = %w(SEARCH)
-  RFC4791 = %w(MKCALENDAR)
-  RFC5789 = %w(PATCH)
+  RFC2616 = %w(OPTIONS GET HEAD POST PUT DELETE TRACE CONNECT).freeze
+  RFC2518 = %w(PROPFIND PROPPATCH MKCOL COPY MOVE LOCK UNLOCK).freeze
+  RFC3253 = %w(VERSION-CONTROL REPORT CHECKOUT CHECKIN UNCHECKOUT MKWORKSPACE UPDATE LABEL MERGE BASELINE-CONTROL MKACTIVITY).freeze
+  RFC3648 = %w(ORDERPATCH).freeze
+  RFC3744 = %w(ACL).freeze
+  RFC5323 = %w(SEARCH).freeze
+  RFC4791 = %w(MKCALENDAR).freeze
+  RFC5789 = %w(PATCH).freeze
 
   def simple_app(response)
     lambda { |env| [ 200, { "Content-Type" => "text/plain" }, [response] ] }

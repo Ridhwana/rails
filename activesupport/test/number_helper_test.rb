@@ -67,6 +67,9 @@ module ActiveSupport
           assert_equal("(800) 555-1212 x 123", number_helper.number_to_phone(8005551212, area_code: true, extension: 123))
           assert_equal("800-555-1212", number_helper.number_to_phone(8005551212, extension: "  "))
           assert_equal("555.1212", number_helper.number_to_phone(5551212, delimiter: "."))
+          assert_equal("555 - 1234", number_helper.number_to_phone(5551234, delimiter: " - "))
+          assert_equal("800 - 555 - 1212", number_helper.number_to_phone(8005551212, delimiter: " - "))
+          assert_equal("555—1234", number_helper.number_to_phone(5551234, delimiter: "—"))
           assert_equal("800-555-1212", number_helper.number_to_phone("8005551212"))
           assert_equal("+1-800-555-1212", number_helper.number_to_phone(8005551212, country_code: 1))
           assert_equal("+18005551212", number_helper.number_to_phone(8005551212, country_code: 1, delimiter: ""))
@@ -139,6 +142,8 @@ module ActiveSupport
           assert_equal("12,345,678", number_helper.number_to_delimited(12345678))
           assert_equal("0", number_helper.number_to_delimited(0))
           assert_equal("123", number_helper.number_to_delimited(123))
+          assert_equal("1,234", number_helper.number_to_delimited(1234))
+          assert_equal("12,345", number_helper.number_to_delimited(12345))
           assert_equal("123,456", number_helper.number_to_delimited(123456))
           assert_equal("123,456.78", number_helper.number_to_delimited(123456.78))
           assert_equal("123,456.789", number_helper.number_to_delimited(123456.789))
@@ -454,6 +459,18 @@ module ActiveSupport
           assert_equal("x", number_helper.number_to_rounded("x"))
           assert_equal "x", number_helper.number_to_human_size("x")
           assert_equal "x", number_helper.number_to_human("x")
+        end
+      end
+
+      def test_number_helpers_with_scientific_notation
+        [@instance_with_helpers, TestClassWithClassNumberHelpers, ActiveSupport::NumberHelper].each do |number_helper|
+          assert_equal "$123481223d98989", number_helper.number_to_currency("123481223d98989")
+          assert_equal "$11288E822220222", number_helper.number_to_currency("11288E822220222")
+          assert_equal "-$888E89789", number_helper.number_to_currency("-888E89789")
+
+          assert_equal "123481223d98989%", number_helper.number_to_percentage("123481223d98989")
+          assert_equal "11288E822220222%", number_helper.number_to_percentage("11288E822220222")
+          assert_equal "-888E89789%", number_helper.number_to_percentage("-888E89789")
         end
       end
     end

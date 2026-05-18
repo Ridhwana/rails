@@ -53,6 +53,7 @@ module ActiveRecord
   autoload :Enum
   autoload :Explain
   autoload :FixtureSet, "active_record/fixtures"
+  autoload :FilterAttributeHandler
   autoload :Inheritance
   autoload :Integration
   autoload :InternalMetadata
@@ -189,6 +190,19 @@ module ActiveRecord
   # when a connection is established rather than on boot.
   singleton_class.attr_accessor :lazily_load_schema_cache
   self.lazily_load_schema_cache = false
+
+  ##
+  # :singlton-method: protected_environments
+  # The array of names of environments where destructive actions should be
+  # prohibited. By default, the value is <tt>["production"]</tt>.
+  singleton_class.attr_reader :protected_environments
+
+  # Sets an array of names of environments where destructive actions should be
+  # prohibited.
+  def self.protected_environments=(environments)
+    @protected_environments = environments.map(&:to_s)
+  end
+  self.protected_environments = ["production"]
 
   ##
   # :singleton-method: schema_cache_ignored_tables
@@ -357,7 +371,7 @@ module ActiveRecord
   self.run_after_transaction_callbacks_in_order_defined = false
 
   singleton_class.attr_accessor :raise_on_missing_required_finder_order_columns
-  self.run_after_transaction_callbacks_in_order_defined = false
+  self.raise_on_missing_required_finder_order_columns = false
 
   singleton_class.attr_accessor :application_record_class
   self.application_record_class = nil
@@ -405,7 +419,8 @@ module ActiveRecord
 
   ##
   # :singleton-method: migration_strategy
-  # Specify strategy to use for executing migrations.
+  # Specify the global default strategy to use for executing migrations.
+  # Individual adapter classes can override this by setting their own migration_strategy.
   singleton_class.attr_accessor :migration_strategy
   self.migration_strategy = Migration::DefaultStrategy
 

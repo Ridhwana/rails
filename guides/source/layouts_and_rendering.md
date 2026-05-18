@@ -283,12 +283,19 @@ TIP: `send_file` is often a faster and better option if a layout isn't required.
 
 #### Rendering Objects
 
-Rails can render objects responding to `#render_in`. The format can be controlled by defining `#format` on the object.
+Rails can render objects that respond to `#render_in`. You can provide the object as the first positional argument or provide it as the `:renderable` option to `render`. The object must also define a `#format` method that returns a valid [Mime#[]](https://api.rubyonrails.org/classes/Mime.html#method-c-5B-5D) key:
+
 
 ```ruby
 class Greeting
-  def render_in(view_context)
-    view_context.render html: "Hello, World"
+  def render_in(view_context, **)
+    if block_given?
+      view_context.render(html: yield)
+    else
+      view_context.render(inline: <<~ERB.strip, **)
+        Hello <%= local_assigns[:name] || "World" %>!
+      ERB
+    end
   end
 
   def format
@@ -297,14 +304,22 @@ class Greeting
 end
 
 render Greeting.new
-# => "Hello World"
-```
+# => "Hello World!"
 
-This calls `render_in` on the provided object with the current view context. You can also provide the object by using the `:renderable` option to `render`:
-
-```ruby
 render renderable: Greeting.new
-# => "Hello World"
+# => "Hello World!"
+
+render Greeting.new, name: "Rails"
+# => "Hello Rails!"
+
+render renderable: Greeting.new, locals: { name: "Rails" }
+# => "Hello Rails!"
+
+render(Greeting.new) { "Hello Block!" }
+# => "Hello Block!"
+
+render(renderable: Greeting.new) { "Hello Block!" }
+# => "Hello Block!"
 ```
 
 #### Options for `render`
@@ -458,7 +473,10 @@ With this set of variants Rails will look for the following set of templates and
 
 If a template with the specified format does not exist an `ActionView::MissingTemplate` error is raised.
 
-Instead of setting the variant on the render call you may also set it on the request object in your controller action.
+Instead of setting the variant on the render call you may also set
+[`request.variant`](https://api.rubyonrails.org/classes/ActionDispatch/Http/MimeNegotiation.html#method-i-variant-3D)
+in your controller action. Learn more about variants in the [Action Controller
+Overview](./action_controller_overview.html#request-variant) guides.
 
 ```ruby
 def index
@@ -474,6 +492,9 @@ private
     variant
   end
 ```
+
+NOTE: Adding many new variant templates with similarities to existing template
+files can make maintaining your view code more difficult.
 
 #### Finding Layouts
 

@@ -21,7 +21,7 @@ module ActionDispatch
         end
       end
 
-      URL_OPTIONS = [:protocol, :subdomain, :domain, :host, :port]
+      URL_OPTIONS = [:protocol, :subdomain, :domain, :host, :port].freeze
 
       cattr_accessor :route_source_locations, instance_accessor: false, default: false
       cattr_accessor :backtrace_cleaner, instance_accessor: false, default: BacktraceCleaner.new
@@ -667,7 +667,7 @@ module ActionDispatch
           def assign_deprecated_option(deprecated_options, key, method_name)
             if (deprecated_value = deprecated_options.delete(key))
               ActionDispatch.deprecator.warn(<<~MSG.squish)
-                #{method_name} received a hash argument #{key}. Please use a keyword instead.
+                #{method_name} received a hash argument #{key}. Please use a keyword instead. Support to hash argument will be removed in Rails 8.2.
               MSG
               deprecated_value
             end
@@ -676,7 +676,7 @@ module ActionDispatch
           def assign_deprecated_options(deprecated_options, options, method_name)
             deprecated_options.each do |key, value|
               ActionDispatch.deprecator.warn(<<~MSG.squish)
-                #{method_name} received a hash argument #{key}. Please use a keyword instead.
+                #{method_name} received a hash argument #{key}. Please use a keyword instead. Support to hash argument will be removed in Rails 8.2.
               MSG
               options[key] = value
             end
@@ -1042,7 +1042,7 @@ module ActionDispatch
           @scope = @scope.parent
         end
 
-        POISON = Object.new # :nodoc:
+        POISON = Object.new.freeze # :nodoc:
 
         # Scopes routes to a specific controller
         #
@@ -1299,9 +1299,9 @@ module ActionDispatch
       module Resources
         # CANONICAL_ACTIONS holds all actions that does not need a prefix or a path
         # appended since they fit properly in their scope level.
-        VALID_ON_OPTIONS  = [:new, :collection, :member]
-        RESOURCE_OPTIONS  = [:as, :controller, :path, :only, :except, :param, :concerns]
-        CANONICAL_ACTIONS = %w(index create new show update destroy)
+        VALID_ON_OPTIONS  = [:new, :collection, :member].freeze
+        RESOURCE_OPTIONS  = [:as, :controller, :path, :only, :except, :param, :concerns].freeze
+        CANONICAL_ACTIONS = %w(index create new show update destroy).freeze
 
         class Resource # :nodoc:
           class << self
@@ -1833,7 +1833,7 @@ module ActionDispatch
         # [match](rdoc-ref:Base#match).
         #
         #     match 'path', to: 'controller#action', via: :post
-        #     match 'path', 'otherpath', on: :member, via: :get
+        #     match 'otherpath', on: :member, via: :get
         def match(*path_or_actions, as: DEFAULT, via: nil, to: nil, controller: nil, action: nil, on: nil, defaults: nil, constraints: nil, anchor: nil, format: nil, path: nil, internal: nil, **mapping, &block)
           if path_or_actions.grep(Hash).any? && (deprecated_options = path_or_actions.extract_options!)
             as = assign_deprecated_option(deprecated_options, :as, :match) if deprecated_options.key?(:as)
@@ -1851,10 +1851,7 @@ module ActionDispatch
             assign_deprecated_options(deprecated_options, mapping, :match)
           end
 
-          ActionDispatch.deprecator.warn(<<-MSG.squish) if path_or_actions.count > 1
-            Mapping a route with multiple paths is deprecated and
-            will be removed in Rails 8.1. Please use multiple method calls instead.
-          MSG
+          raise ArgumentError, "Wrong number of arguments (expect 1, got #{path_or_actions.count})" if path_or_actions.count > 1
 
           if path_or_actions.none? && mapping.any?
             hash_path, hash_to = mapping.find { |key, _| key.is_a?(String) }
@@ -1951,8 +1948,10 @@ module ActionDispatch
             end
 
             scope_options = options.slice!(*RESOURCE_OPTIONS)
-            if !scope_options.empty? || !shallow.nil?
-              scope(**scope_options, shallow:) do
+            scope_options[:shallow] = shallow unless shallow.nil?
+
+            unless scope_options.empty?
+              scope(**scope_options) do
                 public_send(method, resources.pop, **options, &block)
               end
               return true
@@ -2441,10 +2440,10 @@ module ActionDispatch
       class Scope # :nodoc:
         OPTIONS = [:path, :shallow_path, :as, :shallow_prefix, :module,
                    :controller, :action, :path_names, :constraints,
-                   :shallow, :blocks, :defaults, :via, :format, :options, :to]
+                   :shallow, :blocks, :defaults, :via, :format, :options, :to].freeze
 
-        RESOURCE_SCOPES = [:resource, :resources]
-        RESOURCE_METHOD_SCOPES = [:collection, :member, :new]
+        RESOURCE_SCOPES = [:resource, :resources].freeze
+        RESOURCE_METHOD_SCOPES = [:collection, :member, :new].freeze
 
         attr_reader :parent, :scope_level
 
@@ -2526,7 +2525,7 @@ module ActionDispatch
         ROOT = Scope.new({}, nil)
       end
 
-      DEFAULT = Object.new # :nodoc:
+      DEFAULT = Object.new.freeze # :nodoc:
 
       def initialize(set) # :nodoc:
         @set = set

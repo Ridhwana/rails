@@ -20,7 +20,7 @@ module ActiveRecord
       include Serialization
     end
 
-    RESTRICTED_CLASS_METHODS = %w(private public protected allocate new name superclass)
+    RESTRICTED_CLASS_METHODS = %w(private public protected allocate new name superclass).freeze
 
     class GeneratedAttributeMethods < Module # :nodoc:
       LOCK = Monitor.new
@@ -113,7 +113,7 @@ module ActiveRecord
           unless abstract_class?
             load_schema
             super(attribute_names)
-            alias_attribute :id_value, :id if _has_attribute?("id")
+            alias_attribute :id_value, :id if _has_attribute?("id") && !_has_attribute?("id_value")
           end
 
           generate_alias_attributes

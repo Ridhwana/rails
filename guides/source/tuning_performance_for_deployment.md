@@ -15,12 +15,13 @@ This guide focuses on web servers, which are the primary performance-sensitive c
 components like background jobs and WebSockets can be tuned but won't be covered by this guide.
 
 More information about how to configure your application can be found in the [Configuration Guide](configuring.html).
+For a broader overview of how Rails handles concurrent code execution, see the
+[Threading and Code Execution in Rails](threading_and_code_execution.html) guide.
 
 --------------------------------------------------------------------------------
 
-This guide assumes you are running [MRI](https://ruby-lang.org), the canonical implementation of Ruby also known as
-CRuby. If you're using another Ruby implementation such as JRuby or TruffleRuby, most of this guide doesn't apply.
-If needed, check sources specific to your Ruby implementation.
+This guide is written for standard Ruby, which is called either [MRI](https://ruby-lang.org) or CRuby.
+To check which Ruby you are using, run `ruby -v` in your terminal. If it starts with `jruby` or `truffleruby`, some details may differ for your setup.
 
 Choosing an Application Server
 ------------------------------
@@ -28,9 +29,13 @@ Choosing an Application Server
 Puma is Rails' default application server and the most commonly used server across the community.
 It works well in most cases. In some cases, you may wish to change to another.
 
-An application server uses a particular concurrency method.
-For example, Unicorn uses processes, Puma and Passenger are hybrid process- and thread-based concurrency, and Falcon
-uses fibers.
+Different application servers handle multiple requests in different ways.
+Puma, Rails' default server, uses threads in each worker process so it can handle multiple requests at the same time
+within a single process.
+Passenger can also use a hybrid process and thread-based model, while Falcon uses fibers.
+
+Rails autoloading, which is handled by Zeitwerk, is thread-safe.
+In development with Puma, multiple requests might trigger autoloading at the same time, and Rails handles this safely.
 
 A full discussion of Ruby's concurrency methods is beyond the scope of this document, but the key tradeoffs between
 processes and threads will be presented.
@@ -84,6 +89,23 @@ so one additional process uses more memory than an additional thread would.
 Note that while threads are cheaper than processes, they are not free, and increasing the number of threads per process,
 also increases memory usage.
 
+### Thread Safety Considerations
+
+Threaded servers work best when application code treats shared state carefully.
+Each request has its own controller instance, but classes, class variables, global variables, constants, and many caches
+are shared by all threads in the same process.
+
+Avoid mutating shared objects while requests are being served unless the mutation is protected by a thread-safe API,
+mutex, or another synchronization mechanism.
+This includes storing per-request data in class variables, memoizing mutable global objects, or changing configuration
+from request code.
+
+For request-local state, prefer objects created during the request, method-local variables, or Rails-provided APIs such
+as `CurrentAttributes`.
+When using background threads, thread pools, or manually-created threads, make sure application code is wrapped by the
+Rails Executor so connections, caches, and autoloading state are managed correctly.
+See the [Threading and Code Execution in Rails](threading_and_code_execution.html) guide for details.
+
 ### Practical Implications
 
 Users interested in optimizing for throughput and server utilization will want to run one process per CPU core and
@@ -122,7 +144,40 @@ or if the server is running multiple applications, to how many cores you want th
 If you only use one thread per worker, then you can increase it to above one per core to account for when workers are
 idle waiting for I/O operations.
 
-You can configure the number of Puma workers by setting the `WEB_CONCURRENCY` environment variable. Setting `WEB_CONCURRENCY=auto` will automatically adjust the Puma worker count to match the number of available CPUs. However, this setting might be inaccurate on cloud hosts with shared CPUs or platforms that report CPU counts incorrectly.
+You can configure the number of Puma workers by setting the `WEB_CONCURRENCY` environment variable.
+Setting `WEB_CONCURRENCY=auto` will automatically adjust the Puma worker count to match the number of available CPUs.
+However, this setting might be inaccurate on cloud hosts with shared CPUs or platforms that report CPU counts
+incorrectly.
+
+### Database Connections
+
+Each Puma thread may need its own database connection.
+The Active Record connection pool is configured in `config/database.yml` with the `pool` setting.
+For each process, set the pool size to at least the maximum number of Puma threads.
+For example, if `RAILS_MAX_THREADS` is `3`, the database pool should usually be at least `3`.
+
+```yaml
+production:
+  adapter: postgresql
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS", 3) %>
+```
+
+If the pool is too small, requests may wait for a database connection even when Puma has an available thread.
+If it is too large, the application may open more database connections than the database server or hosting plan can
+support.
+The total number of possible database connections is roughly the number of processes multiplied by the pool size, plus
+any connections used by background jobs or other processes.
+
+If your application uses asynchronous Active Record queries, the pool also needs capacity for the async query executor.
+See the [`config.active_record.global_executor_concurrency`](configuring.html#config-active-record-global-executor-concurrency)
+configuration for how to size the pool when async queries are enabled.
+
+When using PostgreSQL, Active Record uses prepared statements by default.
+Prepared statements can improve query performance, but each database connection can create prepared statements and use
+additional database memory.
+If your PostgreSQL database is hitting memory limits, see
+[Configuring a PostgreSQL Database](configuring.html#configuring-a-postgresql-database) for how to lower
+`statement_limit` or disable prepared statements.
 
 ### YJIT
 
